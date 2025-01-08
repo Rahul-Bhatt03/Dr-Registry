@@ -624,6 +624,7 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
                 onChange={handleOccupationChange}
                 disabled={loading}
                 label="Occupation"
+                
               >
                 {loading ? (
                   <MenuItem disabled>

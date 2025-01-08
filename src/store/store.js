@@ -22,6 +22,8 @@ import patientInfoReducer from '../features/patientInfoSlice.js'
 import drRegistryReducer from '../features/updateFormSlice.js'
 import patientDetailReducer from '../features/patientDetailSlice.js'
 import dataReducer from '../features/dataByDrregistryId.js'
+import medicalHistoryReducer from '../features/medicalHistorySlice.js';
+
 
 const store = configureStore({
   reducer: {
@@ -48,6 +50,7 @@ const store = configureStore({
     drRegistry:drRegistryReducer,
     patientDetail: patientDetailReducer,
     data:dataReducer,
+    medicalHistory: medicalHistoryReducer,
     },
 });
 

@@ -8,12 +8,14 @@ import {
   Radio,
   FormControl,
   TextField,
-  Button,
+  Select,
+  MenuItem,
 } from "@mui/material";
+import Button from "@mui/material/Button";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { saveSectionGData } from "../features/sectionSlice.js"; 
-import { updateDrRegistryInfo } from '../features/updateFormSlice.js'; // Import the update action
+import { saveSectionGData } from "../features/sectionSlice.js";
+import { updateDrRegistryInfo } from '../features/updateFormSlice.js';
 
 const SectionG = ({
   selectedAlphabet,
@@ -31,16 +33,71 @@ const SectionG = ({
   const sectionBData = useSelector((state) => state.form.sectionB);
   const sectionCData = useSelector((state) => state.form.sectionC);
 
-    // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
-    const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
-    const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
- 
-  
-  const [formData, setFormData] = useState(sectionGData || {});
+  const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
+  const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
+
+  const ocularMovementOptions = [
+    "Restricted Movement",
+    "Complete Paralysis",
+    "Partial Paralysis",
+    "Nystagmus",
+    "Other"
+  ];
+
+  const pupilReactionOptions = [
+    "Sluggish",
+    "Non-reactive",
+    "RAPD",
+    "Irregular Shape",
+    "Other"
+  ];
+
+  const initialFormData = {
+    // Proptosis - initialize with false (boolean) for radio buttons
+    isProptosisOD: false,
+    isProptosisOS: false,
+    
+    // Ocular Movement - initialize with Normal selected
+    isODocularmovementNormal: true,
+    isODocularmovementAbnormal: false,
+    oDocularmovementAbnormal: null,
+    isOSocularmovementNormal: true,
+    isOSocularmovementAbnormal: false,
+    oSocularmovementAbnormal: null,
+    
+    // Pupil Reaction - initialize with Normal selected
+    isODPupilReactionNormal: true,
+    isODPupilReactionAbnormal: false,
+    odPupilReactionAbnormal: null,
+    isOSPupilReactionNormal: true,
+    isOSPupilReactionAbnormal: false,
+    osPupilReactionAbnormal: null,
+    
+    // Additional fields
+    odOcularMovementType: "",
+    osOcularMovementType: "",
+    odPupilReactionType: "",
+    osPupilReactionType: "",
+  };
+
+  const [formData, setFormData] = useState(() => {
+    // If there's existing section data, use it; otherwise use initialFormData
+    const data = sectionGData || initialFormData;
+    // Ensure Proptosis values are booleans
+    return {
+      ...data,
+      isProptosisOD: typeof data.isProptosisOD === 'boolean' ? data.isProptosisOD : false,
+      isProptosisOS: typeof data.isProptosisOS === 'boolean' ? data.isProptosisOS : false
+    };
+  });
 
   useEffect(() => {
     if (sectionGData) {
-      setFormData(sectionGData);
+      setFormData(prev => ({
+        ...sectionGData,
+        isProptosisOD: typeof sectionGData.isProptosisOD === 'boolean' ? sectionGData.isProptosisOD : false,
+        isProptosisOS: typeof sectionGData.isProptosisOS === 'boolean' ? sectionGData.isProptosisOS : false
+      }));
     }
   }, [sectionGData]);
 
@@ -53,64 +110,99 @@ const SectionG = ({
     });
   };
 
-  const handleRadioChange = (e) => {
+  const handleProptosisChange = (e) => {
     const { name, value } = e.target;
-    const booleanValue = value === "true"; // Convert to boolean
+    const booleanValue = value === 'true';
 
     setFormData((prevData) => {
       const updatedData = { ...prevData, [name]: booleanValue };
-
-      // Handle specific cases for "Normal" and "Abnormal" options to set boolean values
-      if (name.includes("ocularmovement")) {
-        const eye = name.replace("is", "").replace("ocularmovement", "");
-        updatedData[`is${eye}ocularmovementNormal`] = booleanValue;
-        updatedData[`is${eye}ocularmovementAbnormal`] = !booleanValue;
-        updatedData[`${eye.toLowerCase()}ocularmovementAbnormal`] = !booleanValue
-          ? "" : prevData[`${eye.toLowerCase()}ocularmovementAbnormal`];
-      }
-
-      if (name.includes("PupilReaction")) {
-        const eye = name.replace("is", "").replace("PupilReaction", "");
-        updatedData[`is${eye}PupilReactionNormal`] = booleanValue;
-        updatedData[`is${eye}PupilReactionAbnormal`] = !booleanValue;
-        updatedData[`${eye.toLowerCase()}PupilReactionAbnormal`] = !booleanValue
-          ? "" : prevData[`${eye.toLowerCase()}PupilReactionAbnormal`];
-      }
-
       dispatch(saveSectionGData(updatedData));
       return updatedData;
     });
   };
 
- const handleNextPage = async() => {
-     try{
-       dispatch(saveSectionGData(formData)); 
-       const payload = {
-         ...sectionBData,
-         ...sectionCData,
-         ...sectionDData,
-         ...sectionEData,
-         ...sectionFData,
-         ...formData,
-         patientInfoId, 
-         id 
-       };
-       console.log("Section G Payload:", payload);
- 
-       await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
- 
-        // Update the selected alphabet and navigate
-        const nextAlphabet = 'Slit-Lamp-Examination';
-        setSelectedAlphabet(nextAlphabet);
-        localStorage.setItem('selectedAlphabet', nextAlphabet);
-        navigate(`/section-${nextAlphabet}`);
- 
-       handleNextClick(); // Call the function provided by the Layout to navigate
- 
-     }catch(error){
-       console.error("Error updating registry info:", error);
-     }
-   };
+  const handleOcularMovementChange = (eye, value) => {
+    const isNormal = value === "normal";
+    setFormData((prevData) => {
+      const updatedData = {
+        ...prevData,
+        [`is${eye}ocularmovementNormal`]: isNormal,
+        [`is${eye}ocularmovementAbnormal`]: !isNormal,
+        [`o${eye}ocularmovementAbnormal`]: !isNormal ? prevData[`o${eye}ocularmovementAbnormal`] : null,
+        // Reset the type when switching back to normal
+        [`${eye.toLowerCase()}OcularMovementType`]: isNormal ? "" : prevData[`${eye.toLowerCase()}OcularMovementType`]
+      };
+      dispatch(saveSectionGData(updatedData));
+      return updatedData;
+    });
+  };
+
+  const handlePupilReactionChange = (eye, value) => {
+    const isNormal = value === "normal";
+    setFormData((prevData) => {
+      const updatedData = {
+        ...prevData,
+        [`is${eye}PupilReactionNormal`]: isNormal,
+        [`is${eye}PupilReactionAbnormal`]: !isNormal,
+        [`o${eye.toLowerCase()}PupilReactionAbnormal`]: !isNormal ? prevData[`o${eye.toLowerCase()}PupilReactionAbnormal`] : null,
+        // Reset the type when switching back to normal
+        [`${eye.toLowerCase()}PupilReactionType`]: isNormal ? "" : prevData[`${eye.toLowerCase()}PupilReactionType`]
+      };
+      dispatch(saveSectionGData(updatedData));
+      return updatedData;
+    });
+  };
+
+  const handleAbnormalityTypeChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevData) => {
+      const updatedData = { ...prevData };
+      
+      // Update the type selection
+      updatedData[name] = value;
+      
+      // Determine which field to update based on the name
+      let abnormalityField = '';
+      if (name.includes('Ocular')) {
+        abnormalityField = `o${name.slice(0, 2)}ocularmovementAbnormal`;
+      } else if (name.includes('Pupil')) {
+        abnormalityField = `o${name.slice(0, 2).toLowerCase()}PupilReactionAbnormal`;
+      }
+      
+      // Update the abnormality value
+      updatedData[abnormalityField] = value === 'Other' ? null : value;
+      
+      dispatch(saveSectionGData(updatedData));
+      return updatedData;
+    });
+  };
+
+  const handleNextPage = async() => {
+    try {
+      dispatch(saveSectionGData(formData)); 
+      const payload = {
+        ...sectionBData,
+        ...sectionCData,
+        ...sectionDData,
+        ...sectionEData,
+        ...sectionFData,
+        ...formData,
+        patientInfoId, 
+        id 
+      };
+      
+      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
+
+      const nextAlphabet = 'Slit-Lamp-Examination';
+      setSelectedAlphabet(nextAlphabet);
+      localStorage.setItem('selectedAlphabet', nextAlphabet);
+      navigate(`/section-${nextAlphabet}`);
+
+      handleNextClick();
+    } catch(error) {
+      console.error("Error updating registry info:", error);
+    }
+  };
 
   const handlePreviousPage = () => {
     dispatch(saveSectionGData(formData));
@@ -118,16 +210,14 @@ const SectionG = ({
   };
 
   return (
-    <Box
-      sx={{
-        padding: 4,
-        maxWidth: 1000,
-        margin: "auto",
-        boxShadow: 3,
-        borderRadius: 2,
-        backgroundColor: "#fff",
-      }}
-    >
+    <Box sx={{
+      padding: 4,
+      maxWidth: 1000,
+      margin: "auto",
+      boxShadow: 3,
+      borderRadius: 2,
+      backgroundColor: "#fff",
+    }}>
       <Typography variant="h6" marginBottom={2}>
         Section G: External Examination
       </Typography>
@@ -137,26 +227,28 @@ const SectionG = ({
         <Grid item xs={12}>
           <Typography variant="subtitle1">Proptosis</Typography>
         </Grid>
-        {["od", "os"].map((eye, index) => (
-          <Grid key={index} item xs={12} sm={6}>
+        {[
+          { label: "OD", key: "OD" },
+          { label: "OS", key: "OS" }
+        ].map((eye) => (
+          <Grid key={eye.key} item xs={12} sm={6}>
             <FormControl component="fieldset">
-              <Typography variant="body2">{eye}</Typography>
+              <Typography variant="body2">{eye.label}</Typography>
               <RadioGroup
                 row
-                value={formData[`isProptosis${eye}`] || false}
-                onChange={handleRadioChange}
+                value={formData[`isProptosis${eye.key}`].toString()}
+                onChange={handleProptosisChange}
+                name={`isProptosis${eye.key}`}
               >
                 <FormControlLabel
                   control={<Radio />}
                   label="Yes"
-                  value="true" // Keep value as string for comparison
-                  name={`isProptosis${eye}`}
+                  value="true"
                 />
                 <FormControlLabel
                   control={<Radio />}
                   label="No"
-                  value="false" // Keep value as string for comparison
-                  name={`isProptosis${eye}`}
+                  value="false"
                 />
               </RadioGroup>
             </FormControl>
@@ -167,37 +259,55 @@ const SectionG = ({
         <Grid item xs={12}>
           <Typography variant="subtitle1">Extra Ocular Movement</Typography>
         </Grid>
-        {["od", "os"].map((eye, index) => (
-          <Grid key={index} item xs={12} sm={6}>
+        {[
+          { label: "OD", key: "OD" },
+          { label: "OS", key: "OS" }
+        ].map((eye) => (
+          <Grid key={eye.key} item xs={12} sm={6}>
             <FormControl component="fieldset">
-              <Typography variant="body2">{eye}</Typography>
+              <Typography variant="body2">{eye.label}</Typography>
               <RadioGroup
                 row
-                value={formData[`is${eye}ocularmovement`] || false}
-                onChange={handleRadioChange}
+                value={formData[`is${eye.key}ocularmovementNormal`] ? "normal" : "abnormal"}
+                onChange={(e) => handleOcularMovementChange(eye.key, e.target.value)}
               >
                 <FormControlLabel
                   control={<Radio />}
                   label="Normal"
-                  value="true" // Keep value as string for comparison
-                  name={`is${eye}ocularmovement`}
+                  value="normal"
                 />
                 <FormControlLabel
                   control={<Radio />}
                   label="Abnormal"
-                  value="false" // Keep value as string for comparison
-                  name={`is${eye}ocularmovement`}
+                  value="abnormal"
                 />
               </RadioGroup>
-              <TextField
-                fullWidth
-                label="Specify abnormal (if any)"
-                variant="outlined"
-                name={`${eye.toLowerCase()}ocularmovementAbnormal`}
-                value={formData[`${eye.toLowerCase()}ocularmovementAbnormal`] || ""}
-                onChange={handleInputChange}
-                disabled={formData[`is${eye}ocularmovement`] === true}
-              />
+              {formData[`is${eye.key}ocularmovementAbnormal`] && (
+                <>
+                  <Select
+                    fullWidth
+                    value={formData[`${eye.key.toLowerCase()}OcularMovementType`] || ""}
+                    onChange={handleAbnormalityTypeChange}
+                    name={`${eye.key.toLowerCase()}OcularMovementType`}
+                    sx={{ mt: 1, mb: 1 }}
+                  >
+                    <MenuItem value="">Select Abnormality</MenuItem>
+                    {ocularMovementOptions.map((option) => (
+                      <MenuItem key={option} value={option}>{option}</MenuItem>
+                    ))}
+                  </Select>
+                  {formData[`${eye.key.toLowerCase()}OcularMovementType`] === "Other" && (
+                    <TextField
+                      fullWidth
+                      label="Specify other abnormality"
+                      variant="outlined"
+                      name={`o${eye.key}ocularmovementAbnormal`}
+                      value={formData[`o${eye.key}ocularmovementAbnormal`] || ""}
+                      onChange={handleInputChange}
+                    />
+                  )}
+                </>
+              )}
             </FormControl>
           </Grid>
         ))}
@@ -206,54 +316,71 @@ const SectionG = ({
         <Grid item xs={12}>
           <Typography variant="subtitle1">Pupil Reaction to Light</Typography>
         </Grid>
-        {["od", "os"].map((eye, index) => (
-          <Grid key={index} item xs={12} sm={6}>
+        {[
+          { label: "OD", key: "OD" },
+          { label: "OS", key: "OS" }
+        ].map((eye) => (
+          <Grid key={eye.key} item xs={12} sm={6}>
             <FormControl component="fieldset">
-              <Typography variant="body2">{eye}</Typography>
+              <Typography variant="body2">{eye.label}</Typography>
               <RadioGroup
                 row
-                value={formData[`is${eye}PupilReaction`] || false}
-                onChange={handleRadioChange}
+                value={formData[`is${eye.key}PupilReactionNormal`] ? "normal" : "abnormal"}
+                onChange={(e) => handlePupilReactionChange(eye.key, e.target.value)}
               >
                 <FormControlLabel
                   control={<Radio />}
                   label="Normal"
-                  value="true" // Keep value as string for comparison
-                  name={`is${eye}PupilReaction`}
+                  value="normal"
                 />
                 <FormControlLabel
                   control={<Radio />}
                   label="Abnormal"
-                  value="false" // Keep value as string for comparison
-                  name={`is${eye}PupilReaction`}
+                  value="abnormal"
                 />
               </RadioGroup>
-              <TextField
-                fullWidth
-                label="Specify abnormal (if any)"
-                variant="outlined"
-                name={`${eye.toLowerCase()}PupilReactionAbnormal`}
-                value={formData[`${eye.toLowerCase()}PupilReactionAbnormal`] || ""}
-                onChange={handleInputChange}
-                disabled={formData[`is${eye}PupilReaction`] === true}
-              />
+              {formData[`is${eye.key}PupilReactionAbnormal`] && (
+                <>
+                  <Select
+                    fullWidth
+                    value={formData[`${eye.key.toLowerCase()}PupilReactionType`] || ""}
+                    onChange={handleAbnormalityTypeChange}
+                    name={`${eye.key.toLowerCase()}PupilReactionType`}
+                    sx={{ mt: 1, mb: 1 }}
+                  >
+                    <MenuItem value="">Select Abnormality</MenuItem>
+                    {pupilReactionOptions.map((option) => (
+                      <MenuItem key={option} value={option}>{option}</MenuItem>
+                    ))}
+                  </Select>
+                  {formData[`${eye.key.toLowerCase()}PupilReactionType`] === "Other" && (
+                    <TextField
+                      fullWidth
+                      label="Specify other abnormality"
+                      variant="outlined"
+                      name={`o${eye.key.toLowerCase()}PupilReactionAbnormal`}
+                      value={formData[`o${eye.key.toLowerCase()}PupilReactionAbnormal`] || ""}
+                      onChange={handleInputChange}
+                    />
+                  )}
+                </>
+              )}
             </FormControl>
           </Grid>
         ))}
 
-        {/* Previous Page Button */}
+        {/* Navigation Buttons */}
         <Grid item xs={12}>
           <Button
             fullWidth
             variant="contained"
             color="secondary"
             onClick={handlePreviousPage}
+            sx={{ mb: 2 }}
           >
             Previous Page
           </Button>
         </Grid>
-
-        {/* Next Page Button */}
         <Grid item xs={12}>
           <Button
             fullWidth

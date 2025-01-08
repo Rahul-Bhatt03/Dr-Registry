@@ -13,15 +13,38 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  FormHelperText,
-  CircularProgress,
+  Checkbox,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { saveSectionBData } from "../features/sectionSlice.js";
-import { fetchDiabetesMellitisTypes } from "../features/diabiticTpyeSlice.js";
-import { submitFormData } from "../features/formSubmissionSlice"; // Import the submitFormData API
-import { updateDrRegistryInfo } from "../features/updateFormSlice.js"; 
+import { submitFormData } from "../features/formSubmissionSlice";
+import { updateDrRegistryInfo } from "../features/updateFormSlice.js";
+
+const DURATION_TYPES = [
+  { id: 1, label: "Days" },
+  { id: 2, label: "Months" },
+  { id: 3, label: "Years" },
+];
+
+const DIABETES_TYPES = [
+  { id: 1, label: "Type I" },
+  { id: 2, label: "Type II" },
+  { id: 3, label: "Others" },
+];
+
+const MEDICINE_OPTIONS = [
+  { id: 1, label: "Medicine 1" },
+  { id: 2, label: "Medicine 2" },
+  { id: 3, label: "Medicine 3" },
+];
+
+const TREATMENT_OPTIONS = [
+  { id: 1, label: "Oral Hypoglycemic Agent" },
+  { id: 2, label: "Insulin" },
+  { id: 3, label: "No Any" },
+  { id: 4, label: "Diet Only" },
+];
 
 const SectionB = ({
   selectedAlphabet,
@@ -31,125 +54,172 @@ const SectionB = ({
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-
-  // Fetch existing data from the Redux store
-  const sectionAData = useSelector((state) => state.form.sectionA);
   const sectionBData = useSelector((state) => state.form.sectionB);
-  // Extract patientId and DrRegistryId
-  // const patientInfoId = sectionAData?.patientId;
-  const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
+  const patientInfoId = parseInt(localStorage.getItem("currentpatientInfoId"));
 
-
-  console.log("Patient ID:", patientInfoId);
-
-  // Fetch diabetesMellitisTypes from Redux store
-  const diabetesMellitisTypes = useSelector(
-    (state) => state.dType.diabetesMellitisTypes
-  );
-  const diabetesStatus = useSelector((state) => state.dType.status);
-
-  // Local state to manage form fields
   const [formData, setFormData] = useState({
-    diabetesMellitisTypeId: null,
+    diabetesMellitisType: null,
+    otherDiabetesMellitisType: "",
     diabetesDetectedDate: new Date().toISOString(),
     durationofDiabetes: null,
-    treatmentStartDate: new Date().toISOString(), // Default date
+    diabetesDurationType: 1,
     treatmentType: null,
+    selectedTreatments: [],
     isAwarenessOnDiabetesRetinopathy: false,
-    sourceofAwareness: null,
+    sourceofAwareness: "",
+
     isHypertension: false,
     hypertensionDuration: null,
-    hypertensionMedicationName: null,
+    hypertensionDurationType: 1,
+    isHypertensionTreatment: false,
+    hypertensionMedicineId: null,
+    hypertensionMedicationName: "",
+
     isHyperlipidemia: false,
     hyperlipidemiaDuration: null,
-    hyperlipidemiaMedicationName: null,
+    hyperlipidemiaDurationType: 1,
+    isHyperlipidemiaTreatment: false,
+    hyperlipidemiaMedicineId: null,
+    hyperlipidemiaMedicationName: "",
+
     isPregnancyHistory: false,
     pregnancyMonth: null,
     isCardiacProblem: false,
-    cardiacProblem:null,
+    cardiacProblem: "",
+
     isOtherMedicalHistory: false,
-    otherMedicalHistory: null,
+    otherMedicalHistory: "",
+    otherMedicalDuration: null,
+    otherMedicalDurationType: 1,
+    otherMedicationName: "",
   });
 
-  // Load Redux data into local state on mount
   useEffect(() => {
     setFormData((prevData) => ({ ...prevData, ...sectionBData }));
   }, [sectionBData]);
 
-  useEffect(() => {
-    // Fetch diabetes mellitus types if not already loaded
-    if (diabetesStatus === "idle") {
-      dispatch(fetchDiabetesMellitisTypes());
-    }
-  }, [diabetesStatus, dispatch]);
+  const handleTreatmentChange = (treatmentId) => {
+    setFormData((prevData) => {
+      const existingTreatmentIndex = prevData.selectedTreatments.findIndex(
+        (t) => t.treatmentType === treatmentId
+      );
 
-  // Update local state and Redux store when form fields change
+      let updatedTreatments;
+      if (existingTreatmentIndex === -1) {
+        updatedTreatments = [
+          ...prevData.selectedTreatments,
+          {
+            medicalHistoryInfoId: 0,
+            treatmentType: treatmentId,
+            treatmentStartDate: new Date().toISOString(),
+            treatmentofDiabetes: 0,
+            treatmentDurationType: 1
+          }
+        ];
+      } else {
+        updatedTreatments = prevData.selectedTreatments.filter(
+          (_, index) => index !== existingTreatmentIndex
+        );
+      }
+
+      return {
+        ...prevData,
+        selectedTreatments: updatedTreatments
+      };
+    });
+  };
+
+  const handleTreatmentDateChange = (treatmentId, date) => {
+    setFormData((prevData) => {
+      const updatedTreatments = prevData.selectedTreatments.map(treatment => {
+        if (treatment.treatmentType === treatmentId) {
+          return { ...treatment, treatmentStartDate: date };
+        }
+        return treatment;
+      });
+
+      return {
+        ...prevData,
+        selectedTreatments: updatedTreatments
+      };
+    });
+  };
+
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    console.log(e.target);
+    
     if (type === "radio") {
-      if (name == "treatmentType") {
-        setFormData((prevData) => {
-          const updatedData = { ...prevData, [name]: parseInt(value) };
-          dispatch(saveSectionBData(updatedData)); // Save data to Redux on every change
-          return updatedData;
-        });
-      } else {
-        const booleanValue = value === "yes"; // Convert radio value to boolean
-
-        setFormData((prevData) => {
-          const updatedData = { ...prevData, [name]: booleanValue };
-          dispatch(saveSectionBData(updatedData)); // Save data to Redux on every change
-          return updatedData;
-        });
-      }
+      const booleanValue = value === "yes";
+      setFormData(prevData => ({
+        ...prevData,
+        [name]: booleanValue,
+        ...(name === "isHypertension" && !booleanValue ? {
+          hypertensionDuration: null,
+          hypertensionDurationType: 1,
+          isHypertensionTreatment: false,
+          hypertensionMedicineId: null,
+          hypertensionMedicationName: ""
+        } : {}),
+        ...(name === "isHyperlipidemia" && !booleanValue ? {
+          hyperlipidemiaDuration: null,
+          hyperlipidemiaDurationType: 1,
+          isHyperlipidemiaTreatment: false,
+          hyperlipidemiaMedicineId: null,
+          hyperlipidemiaMedicationName: ""
+        } : {})
+      }));
     } else {
-      if (
-      
-        name == "durationofDiabetes" ||
-        name == "hyperlipidemiaDuration" ||
-        name == "hypertensionDuration"||
-        name == "pregnancyMonth"
-      ) {
-        setFormData((prevData) => {
-          const updatedData = { ...prevData, [name]: parseInt(value) };
-          dispatch(saveSectionBData(updatedData)); // Save data to Redux on every change
-          return updatedData;
-        });
-      } else {
-        setFormData((prevData) => {
-          const updatedData = { ...prevData, [name]: value };
-          dispatch(saveSectionBData(updatedData)); // Save data to Redux on every change
-          return updatedData;
-        });
-      }
+      setFormData(prevData => ({
+        ...prevData,
+        [name]: value,
+        ...(name === "diabetesMellitisType" && parseInt(value) !== 3 ? {
+          otherDiabetesMellitisType: ""
+        } : {})
+      }));
     }
+  };
+
+  const prepareMedicineListDTO = () => {
+    const medicineList = [];
+    
+    if (formData.isHypertension && formData.isHypertensionTreatment && formData.hypertensionMedicineId) {
+      medicineList.push({
+        medicalHistoryInfoId: 0,
+        healthIssueType: 1,
+        medicine: parseInt(formData.hypertensionMedicineId)
+      });
+    }
+
+    if (formData.isHyperlipidemia && formData.isHyperlipidemiaTreatment && formData.hyperlipidemiaMedicineId) {
+      medicineList.push({
+        medicalHistoryInfoId: 0,
+        healthIssueType: 2,
+        medicine: parseInt(formData.hyperlipidemiaMedicineId)
+      });
+    }
+
+    return medicineList;
   };
 
   const handleSubmit = () => {
     const payload = {
       patientInfoId,
       ...formData,
+      medicalHistoryTreatmentTypeInfoDTOs: formData.selectedTreatments,
+      medicineListInfoDTOs: prepareMedicineListDTO()
     };
-  
-    console.log("Submitting Payload:", payload);
-  
+
     dispatch(submitFormData(payload))
       .unwrap()
       .then((response) => {
-        console.log("API Response:", response);
-  
-        const id = response; 
-        // Save DrRegistryId to Redux and localStorage
+        const id = response;
         dispatch(saveSectionBData({ ...formData, DrRegistryId: id, patientInfoId }));
         localStorage.setItem("DrRegistryId", id);
-  
         alert("Registry ID created!");
-           // Update the selected alphabet and navigate
-       const nextAlphabet = 'Smoking-History';
-       setSelectedAlphabet(nextAlphabet);
-       localStorage.setItem('selectedAlphabet', nextAlphabet);
-       navigate(`/section-${nextAlphabet}`);
+        const nextAlphabet = "Smoking-History";
+        setSelectedAlphabet(nextAlphabet);
+        localStorage.setItem("selectedAlphabet", nextAlphabet);
+        navigate(`/section-${nextAlphabet}`);
         handleNextClick();
       })
       .catch((error) => {
@@ -157,24 +227,20 @@ const SectionB = ({
         alert("Failed to submit the form. Please try again.");
       });
   };
-  
+
   const handleNextPage = () => {
     const id = localStorage.getItem("DrRegistryId");
-
     const payload = {
       patientInfoId,
       DrRegistryId: id,
       ...formData,
     };
 
-    console.log("Updating Payload:", payload);
-
     dispatch(updateDrRegistryInfo(payload))
       .unwrap()
       .then(() => {
-        console.log("API Response: Data updated successfully");
         alert("Data updated successfully!");
-        handleNextClick(); // Proceed to next page after successful update
+        handleNextClick();
       })
       .catch((error) => {
         console.error("Error updating form:", error);
@@ -182,45 +248,10 @@ const SectionB = ({
       });
   };
 
-  // Conditional rendering based on registration status
   const isRegistered = patientInfoId && localStorage.getItem("DrRegistryId");
-  
-
-    
-  // const handleNextPage = () => {
-  //   dispatch(saveSectionBData(formData)); // Ensure data is saved before navigation
-  //   handleNextClick(); // Call the function provided by the Layout to navigate
-  // };
-
-  // const handlePreviousPage = () => {
-  //   dispatch(saveSectionBData(formData)); // Ensure data is saved before navigation
-  //   handlePreviousClick(); // Call the function provided by the Layout to navigate
-  // };
-
-  // const handleAlphabetClick = (alphabet) => {
-  //   setSelectedAlphabet(alphabet); // Update selected alphabet
-  //   localStorage.setItem("selectedAlphabet", alphabet); // Save to local storage
-  //   navigate(`/section-${alphabet}`); // Navigate to the corresponding section
-  // };
-
-  const treatmentOptions = [
-    { id: 1, label: "Oral Hypoglycemic Agent" },
-    { id: 2, label: "Insulin" },
-    { id: 3, label: "No Any" },
-    { id: 4, label: "Diet Only" },
-  ];
 
   return (
-    <Box
-      sx={{
-        padding: 4,
-        maxWidth: 800,
-        margin: "auto",
-        boxShadow: 3,
-        borderRadius: 2,
-        backgroundColor: "#fff",
-      }}
-    >
+    <Box sx={{ padding: 4, maxWidth: 800, margin: "auto", boxShadow: 3, borderRadius: 2, backgroundColor: "#fff" }}>
       <Typography variant="h6" marginBottom={2}>
         Section B: Medical History
       </Typography>
@@ -231,80 +262,114 @@ const SectionB = ({
           <FormControl fullWidth>
             <InputLabel>Type of Diabetes Mellitus</InputLabel>
             <Select
-              value={formData.diabetesMellitisTypeId || ""}
+              value={formData.diabetesMellitisType || ""}
               label="Type of Diabetes Mellitus"
               onChange={handleInputChange}
-              name="diabetesMellitisTypeId"
-              disabled={diabetesStatus === "loading"}
+              name="diabetesMellitisType"
             >
-              {diabetesStatus === "loading" ? (
-                <MenuItem disabled>
-                  <CircularProgress size={24} />
+              {DIABETES_TYPES.map((type) => (
+                <MenuItem key={type.id} value={type.id}>
+                  {type.label}
                 </MenuItem>
-              ) : diabetesMellitisTypes && diabetesMellitisTypes.length > 0 ? (
-                diabetesMellitisTypes.map((type) => (
-                  <MenuItem key={type.id} value={type.id}>
-                    {type.name}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>No Types Available</MenuItem>
-              )}
+              ))}
             </Select>
-            <FormHelperText>
-              {diabetesStatus === "failed" ? "Failed to load types" : ""}
-            </FormHelperText>
           </FormControl>
         </Grid>
 
-        {/* Duration of Diabetes */}
+        {formData.diabetesMellitisType === 3 && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Specify Other Type"
+              variant="outlined"
+              name="otherDiabetesMellitisType"
+              value={formData.otherDiabetesMellitisType}
+              onChange={handleInputChange}
+            />
+          </Grid>
+        )}
+
         <Grid item xs={12}>
           <TextField
             fullWidth
-            label="Duration of Diabetes (Years)"
+            label="Diabetes Detected Date"
+            type="datetime-local"
+            variant="outlined"
+            name="diabetesDetectedDate"
+            value={formData.diabetesDetectedDate}
+            onChange={handleInputChange}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Grid>
+
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            label="Duration of Diabetes"
             type="number"
             variant="outlined"
             name="durationofDiabetes"
-            value={formData.durationofDiabetes}
+            value={formData.durationofDiabetes || ""}
             onChange={handleInputChange}
           />
+        </Grid>
+
+        <Grid item xs={6}>
+          <FormControl fullWidth>
+            <InputLabel>Duration Type</InputLabel>
+            <Select
+              value={formData.diabetesDurationType}
+              label="Duration Type"
+              name="diabetesDurationType"
+              onChange={handleInputChange}
+            >
+              {DURATION_TYPES.map((type) => (
+                <MenuItem key={type.id} value={type.id}>
+                  {type.label}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </Grid>
 
         {/* Treatment of Diabetes */}
         <Grid item xs={12}>
           <FormControl component="fieldset">
             <FormLabel>Type of Treatment</FormLabel>
-            <RadioGroup
-              name="treatmentType"
-              value={formData.treatmentType}
-              onChange={handleInputChange}
-            >
-              {treatmentOptions.map((option) => (
-                <FormControlLabel
-                  key={option.id}
-                  value={option.id.toString()} // Ensure value is correctly passed as a string
-                  control={<Radio />}
-                  label={option.label}
-                />
+            <Grid container spacing={2}>
+              {TREATMENT_OPTIONS.map((option) => (
+                <Grid item xs={12} key={option.id}>
+                  <Box display="flex" alignItems="center" gap={2}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          checked={formData.selectedTreatments.some(
+                            t => t.treatmentType === option.id
+                          )}
+                          onChange={() => handleTreatmentChange(option.id)}
+                        />
+                      }
+                      label={option.label}
+                    />
+                    {formData.selectedTreatments.some(t => t.treatmentType === option.id) && 
+                     option.id !== 3 && option.id !== 4 && (
+                      <TextField
+                        type="datetime-local"
+                        size="small"
+                        value={
+                          formData.selectedTreatments.find(
+                            t => t.treatmentType === option.id
+                          )?.treatmentStartDate || ""
+                        }
+                        onChange={(e) => handleTreatmentDateChange(option.id, e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                      />
+                    )}
+                  </Box>
+                </Grid>
               ))}
-            </RadioGroup>
+            </Grid>
           </FormControl>
-        </Grid>
-
-        {/* Treatment Start Date */}
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Treatment Start Date"
-            type="datetime-local"
-            variant="outlined"
-            name="treatmentStartDate"
-            value={formData.treatmentStartDate}
-            onChange={handleInputChange}
-            InputLabelProps={{
-              shrink: true, // Ensure the label doesn't overlap with the date input
-            }}
-          />
         </Grid>
 
         {/* Awareness on Diabetic Retinopathy */}
@@ -322,91 +387,187 @@ const SectionB = ({
             </RadioGroup>
           </FormControl>
         </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Specify Source"
-            variant="outlined"
-            name="sourceofAwareness"
-            value={formData.sourceofAwareness}
-            onChange={handleInputChange}
-          />
-        </Grid>
+
+        {formData.isAwarenessOnDiabetesRetinopathy && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Source of Awareness"
+              variant="outlined"
+              name="sourceofAwareness"
+              value={formData.sourceofAwareness}
+              onChange={handleInputChange}
+            />
+          </Grid>
+        )}
 
         {/* Hypertension */}
         <Grid item xs={12}>
-          <FormControl component="fieldset">
-            <FormLabel>Hypertension</FormLabel>
-            <RadioGroup
-              row
-              name="isHypertension"
-              value={formData.isHypertension ? "yes" : "no"}
-              onChange={handleInputChange}
-            >
-              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-              <FormControlLabel value="no" control={<Radio />} label="No" />
-            </RadioGroup>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Duration of Hypertension (Years)"
-            type="number"
-            variant="outlined"
-            name="hypertensionDuration"
-            value={formData.hypertensionDuration}
+        <FormControl component="fieldset">
+          <FormLabel>Hypertension</FormLabel>
+          <RadioGroup
+            row
+            name="isHypertension"
+            value={formData.isHypertension ? "yes" : "no"}
             onChange={handleInputChange}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Name of Medication"
-            variant="outlined"
-            name="hypertensionMedicationName"
-            value={formData.hypertensionMedicationName}
-            onChange={handleInputChange}
-          />
-        </Grid>
+          >
+            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+            <FormControlLabel value="no" control={<Radio />} label="No" />
+          </RadioGroup>
+        </FormControl>
+      </Grid>
 
-        {/* Hyperlipidemia */}
-        <Grid item xs={12}>
-          <FormControl component="fieldset">
-            <FormLabel>Hyperlipidemia</FormLabel>
-            <RadioGroup
-              row
-              name="isHyperlipidemia"
-              value={formData.isHyperlipidemia ? "yes" : "no"}
+      {formData.isHypertension && (
+        <>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label="Duration"
+              type="number"
+              variant="outlined"
+              name="hypertensionDuration"
+              value={formData.hypertensionDuration || ""}
               onChange={handleInputChange}
-            >
-              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-              <FormControlLabel value="no" control={<Radio />} label="No" />
-            </RadioGroup>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="Duration of Hyperlipidemia (Years)"
-            type="number"
-            variant="outlined"
-            name="hyperlipidemiaDuration"
-            value={formData.hyperlipidemiaDuration}
-            onChange={handleInputChange}
-          />
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Name of Medication"
-            variant="outlined"
-            name="hyperlipidemiaMedicationName"
-            value={formData.hyperlipidemiaMedicationName}
-            onChange={handleInputChange}
-          />
-        </Grid>
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth>
+              <InputLabel>Duration Type</InputLabel>
+              <Select
+                value={formData.hypertensionDurationType}
+                label="Duration Type"
+                name="hypertensionDurationType"
+                onChange={handleInputChange}
+              >
+                {DURATION_TYPES.map((type) => (
+                  <MenuItem key={type.id} value={type.id}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <FormControl component="fieldset">
+              <FormLabel>Under Treatment?</FormLabel>
+              <RadioGroup
+                row
+                name="isHypertensionTreatment"
+                value={formData.isHypertensionTreatment ? "yes" : "no"}
+                onChange={handleInputChange}
+              >
+                <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                <FormControlLabel value="no" control={<Radio />} label="No" />
+              </RadioGroup>
+            </FormControl>
+          </Grid>
 
+          {formData.isHypertensionTreatment && (
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Select Medicine</InputLabel>
+                <Select
+                  value={formData.hypertensionMedicineId || ""}
+                  name="hypertensionMedicineId"
+                  onChange={handleInputChange}
+                  label="Select Medicine"
+                >
+                  {MEDICINE_OPTIONS.map((option) => (
+                    <MenuItem key={option.id} value={option.id}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+        </>
+      )}
+
+      {/* Updated Hyperlipidemia Section */}
+      <Grid item xs={12}>
+        <FormControl component="fieldset">
+          <FormLabel>Hyperlipidemia</FormLabel>
+          <RadioGroup
+            row
+            name="isHyperlipidemia"
+            value={formData.isHyperlipidemia ? "yes" : "no"}
+            onChange={handleInputChange}
+          >
+            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+            <FormControlLabel value="no" control={<Radio />} label="No" />
+          </RadioGroup>
+        </FormControl>
+      </Grid>
+
+      {formData.isHyperlipidemia && (
+        <>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label="Duration"
+              type="number"
+              variant="outlined"
+              name="hyperlipidemiaDuration"
+              value={formData.hyperlipidemiaDuration || ""}
+              onChange={handleInputChange}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth>
+              <InputLabel>Duration Type</InputLabel>
+              <Select
+                value={formData.hyperlipidemiaDurationType}
+                label="Duration Type"
+                name="hyperlipidemiaDurationType"
+                onChange={handleInputChange}
+              >
+                {DURATION_TYPES.map((type) => (
+                  <MenuItem key={type.id} value={type.id}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12}>
+            <FormControl component="fieldset">
+              <FormLabel>Under Treatment?</FormLabel>
+              <RadioGroup
+                row
+                name="isHyperlipidemiaTreatment"
+                value={formData.isHyperlipidemiaTreatment ? "yes" : "no"}
+                onChange={handleInputChange}
+              >
+                <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+                <FormControlLabel value="no" control={<Radio />} label="No" />
+              </RadioGroup>
+            </FormControl>
+          </Grid>
+
+          {formData.isHyperlipidemiaTreatment && (
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Select Medicine</InputLabel>
+                <Select
+                  value={formData.hyperlipidemiaMedicineId || ""}
+                  name="hyperlipidemiaMedicineId"
+                  onChange={handleInputChange}
+                  label="Select Medicine"
+                >
+                  {MEDICINE_OPTIONS.map((option) => (
+                    <MenuItem key={option.id} value={option.id}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+        </>
+      )}
         {/* Pregnancy History */}
         <Grid item xs={12}>
           <FormControl component="fieldset">
@@ -422,16 +583,19 @@ const SectionB = ({
             </RadioGroup>
           </FormControl>
         </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Month of Pregnancy"
-            variant="outlined"
-            name="pregnancyMonth"
-            value={formData.pregnancyMonth}
-            onChange={handleInputChange}
-          />
-        </Grid>
+        {formData.isPregnancyHistory && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Pregnancy Month"
+              type="number"
+              variant="outlined"
+              name="pregnancyMonth"
+              value={formData.pregnancyMonth || null}
+              onChange={handleInputChange}
+            />
+          </Grid>
+        )}
 
         {/* Cardiac Problem */}
         <Grid item xs={12}>
@@ -448,48 +612,93 @@ const SectionB = ({
             </RadioGroup>
           </FormControl>
         </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Please Specify"
-            variant="outlined"
-            name="cardiacProblem"
-            value={formData.cardiacProblem}
-            onChange={handleInputChange}
-          />
-        </Grid>
+        {formData.isCardiacProblem && (
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Specify Cardiac Problem"
+              variant="outlined"
+              name="cardiacProblem"
+              value={formData.cardiacProblem || null}
+              onChange={handleInputChange}
+            />
+          </Grid>
+        )}
 
         {/* Other Medical History */}
         <Grid item xs={12}>
-          <FormControl component="fieldset">
-            <FormLabel>Other Medical History</FormLabel>
-            <RadioGroup
-              row
-              name="isOtherMedicalHistory"
-              value={formData.isOtherMedicalHistory ? "yes" : "no"}
-              onChange={handleInputChange}
-            >
-              <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-              <FormControlLabel value="no" control={<Radio />} label="No" />
-            </RadioGroup>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12}>
-          <TextField
-            fullWidth
-            label="If Yes, Please Specify"
-            variant="outlined"
-            name="otherMedicalHistory"
-            value={formData.otherMedicalHistory}
+        <FormControl component="fieldset">
+          <FormLabel>Other Medical History</FormLabel>
+          <RadioGroup
+            row
+            name="isOtherMedicalHistory"
+            value={formData.isOtherMedicalHistory ? "yes" : "no"}
             onChange={handleInputChange}
-          />
-        </Grid>
+          >
+            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
+            <FormControlLabel value="no" control={<Radio />} label="No" />
+          </RadioGroup>
+        </FormControl>
       </Grid>
+      
+      {formData.isOtherMedicalHistory && (
+        <>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Medical Condition"
+              variant="outlined"
+              name="otherMedicalHistory"
+              value={formData.otherMedicalHistory||null}
+              onChange={handleInputChange}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField
+              fullWidth
+              label="Duration"
+              type="number"
+              variant="outlined"
+              name="otherMedicalDuration"
+              value={formData.otherMedicalDuration||null}
+              onChange={handleInputChange}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <FormControl fullWidth>
+              <InputLabel>Duration Type</InputLabel>
+              <Select
+                value={formData.otherMedicalDurationType||null}
+                label="Duration Type"
+                name="otherMedicalDurationType"
+                onChange={handleInputChange}
+              >
+                {DURATION_TYPES.map((type) => (
+                  <MenuItem key={type.id} value={type.id}>
+                    {type.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              label="Medication Name"
+              variant="outlined"
+              name="otherMedicationName"
+              value={formData.otherMedicationName||null}
+              onChange={handleInputChange}
+            />
+          </Grid>
+        </>
+      )}
+</Grid>
 
       {/* Navigation Buttons */}
       <Box mt={4}>
-       {/* Submit Button or Next Button */}
-       <Grid item xs={12}>
+        {/* Submit Button or Next Button */}
+        <Grid item xs={12}>
           {isRegistered ? (
             <Button variant="contained" onClick={handleNextPage}>
               Next
