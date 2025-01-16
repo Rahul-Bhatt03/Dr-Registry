@@ -15,15 +15,21 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { saveSectionCData } from '../features/sectionSlice.js';
 import { updateDrRegistryInfo } from "../features/updateFormSlice.js";
+import { addSmokingHistory } from '../features/smokingHistorySlice.js';
+import { toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css';
 
 const SectionC = ({
   selectedAlphabet,
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [formErrors, setFormErrors] = useState({});
 
   const sectionAData = useSelector((state) => state.form.sectionA);
   const sectionBData = useSelector((state) => state.form.sectionB);
@@ -74,6 +80,57 @@ const SectionC = ({
     });
   }, [sectionCData]);
 
+  const validateForm = () => {
+    const errors = {};
+    
+    // Validate smoking history
+    if (!formData.smokingHistoryType) {
+      errors.smokingHistoryType = "Required";
+    }
+
+    // Validate past smoker fields
+    if (formData.smokingHistoryType === 2) {
+      if (!formData.pastSmokerStartedAge) errors.pastSmokerStartedAge = "Required";
+      if (!formData.yearsSmoked) errors.yearsSmoked = "Required";
+      if (!formData.quitSmokingYear) errors.quitSmokingYear = "Required";
+    }
+
+    // Validate current smoker fields
+    if (formData.smokingHistoryType === 3) {
+      if (!formData.averageNoCigrate) errors.averageNoCigrate = "Required";
+      if (!formData.yearsSmoked) errors.yearsSmoked = "Required";
+    }
+
+    // Validate alcohol history
+    if (!formData.alcoholicHistoryType) {
+      errors.alcoholicHistoryType = "Required";
+    }
+
+    // Validate present drinker fields
+    if (formData.alcoholicHistoryType === 2) {
+      if (!formData.alcoholType) errors.alcoholType = "Required";
+      if (!formData.drinkingDuration) errors.drinkingDuration = "Required";
+      if (!formData.quantityPerWeek) errors.quantityPerWeek = "Required";
+    }
+
+    // Validate past drinker fields
+    if (formData.alcoholicHistoryType === 3) {
+      if (!formData.stopDrinkDuration) errors.stopDrinkDuration = "Required";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  // Effect to check form completion status
+  useEffect(() => {
+    const isFormComplete = validateForm();
+    // Only update if the form status has changed
+    if (formStatus['Smoking-History'] !== isFormComplete) {
+      updateFormStatus('Smoking-History', isFormComplete);
+    }
+  }, [formData, updateFormStatus]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => {
@@ -85,19 +142,32 @@ const SectionC = ({
 
   const handleNextPage = async () => {
     try {
-      const token = localStorage.getItem("token");
+
+      if (!validateForm()) {
+        toast.error("Please fill in all required fields correctly", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
+
       const combinedData = {
         patientInfoId,
         id,
         ...sectionBData,
         ...formData,
       };
-      await dispatch(updateDrRegistryInfo({ registryData: combinedData, token })).unwrap();
+  
+      // Dispatching the updated API call from the slice
+      await dispatch(addSmokingHistory({ registryData: combinedData})).unwrap();
+  
+      // Move to the next page after the API call is successful
       handleNextClick();
     } catch (error) {
-      console.error("Error updating registry info:", error);
+      console.error("Error updating smoking history:", error);
     }
   };
+  
 
   const handlePreviousPage = () => {
     dispatch(saveSectionCData(formData));
@@ -387,7 +457,7 @@ const SectionC = ({
               onClick={handleNextPage}
               disabled={drRegistryStatus === 'loading'}
             >
-              Next
+            Submit
             </Button>
           </Box>
         </Grid>

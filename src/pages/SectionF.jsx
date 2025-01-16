@@ -9,11 +9,6 @@ import {
   FormControlLabel,
   Radio,
   Button,
-  InputAdornment,
-  InputLabel,
-  Select,
-  MenuItem,
-  CircularProgress,
   TableContainer,
   Paper,
   Table,
@@ -21,194 +16,197 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  CircularProgress,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { saveSectionFData } from "../features/sectionSlice.js"; // Update the import path if needed
+import { saveSectionFData } from "../features/sectionSlice.js";
 import { fetchOcularHistoryTitles } from "../features/ocularHistoryTitles.js";
-import { updateDrRegistryInfo } from '../features/updateFormSlice.js'; // Import the update action
+import { addOcularHistory } from "../features/ocularHistorySlice.js";
 
+const normalizeFormData = (data) => {
+  const defaultData = {
+    registryInfoId: 0,
+    testType: null,
+    presentingvisualacuityDistanceOD: null,
+    presentingvisualacuityDistanceOS: null,
+    presentingvisualacuityNearOD: null,
+    presentingvisualacuityNearOS: null,
+    unaidedvisualacuityDistanceOD: null,
+    unaidedvisualacuityDistanceOS: null,
+    unaidedvisualacuityNearOD: null,
+    unaidedvisualacuityNearOS: null,
+    bestcorrectedvisualacuityDistanceOD: null,
+    bestcorrectedvisualacuityDistanceOS: null,
+    bestcorrectedvisualacuityNearOD: null,
+    bestcorrectedvisualacuityNearOS: null,
+    ocularHistoryAndExaminationInfoDTOs: []
+  };
+
+  return { ...defaultData, ...data };
+};
 
 const SectionF = ({
   selectedAlphabet,
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  // Retrieve existing data from the Redux store
   const sectionFData = useSelector((state) => state.form.sectionF);
   const sectionEData = useSelector((state) => state.form.sectionE);
   const sectionDData = useSelector((state) => state.form.sectionD);
   const sectionBData = useSelector((state) => state.form.sectionB);
   const sectionCData = useSelector((state) => state.form.sectionC);
 
-    // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
-    const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
-    const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
- 
+  const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
+  const registryInfoId = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
 
-  // Destructure ocularHistoryTitles, loading, and error from Redux state
   const { ocularHistoryTitles, loading, error } = useSelector(
     (state) => state.oht
   );
 
-  const [selectedTitleId, setSelectedTitleId] = useState("");
-  const [odField, setOdField] = useState({
-    show: false,
-    value: null,
-    distance: null,
-  });
-  const [osField, setOsField] = useState({
-    show: false,
-    value: null,
-    distance: null,
-  });
-
-  // Local form state
-  const [formData, setFormData] = useState(sectionFData || {});
+  const [formData, setFormData] = useState(() => normalizeFormData(sectionFData || {}));
 
   useEffect(() => {
     setSelectedAlphabet("Ocular-History");
     localStorage.setItem("selectedAlphabet", "Ocular-History");
-    if (sectionFData) {
-      setFormData(sectionFData);
-    }
     dispatch(fetchOcularHistoryTitles());
   }, []);
 
-
-  // const handleTitleChange = (event) => {
-  //   const titleId = event.target.value;
-  //   setSelectedTitleId(titleId);
-  //   setOdField({ ...odField, show: titleId !== null });
-  //   setOsField({ ...osField, show: titleId !== null });
-  // };
-
-  // Handle OD/OS Yes/No selection
-  const handleFieldChange = (field, value) => {
-    if (field === "od") {
-      setOdField((prev) => ({
-        ...prev,
-        value: value === "yes",
-        distance: value === "yes" ? prev.distance : null,
-      }));
-    } else {
-      setOsField((prev) => ({
-        ...prev,
-        value: value === "yes",
-        distance: value === "yes" ? prev.distance : null,
-      }));
-    }
-    saveDataToRedux();
-  };
-
-  // Handle distance change
-  const handleDistanceChange = (field, distance) => {
-    if (field === "od") {
-      setOdField((prev) => ({ ...prev, distance }));
-    } else {
-      setOsField((prev) => ({ ...prev, distance }));
-    }
-    saveDataToRedux();
-  };
-
-  // Save data to Redux
-  const saveDataToRedux = () => {
-    dispatch(
-      saveSectionFData({
-        selectedTitleId,
-        odField,
-        osField,
-      })
-    );
-  };
-
-  const [historyData, setHistoryData] = useState({});
-  const [dtos, setDtos] = useState([]);
-
-  const handleRadioChange = (id, field, value) => {
+  const handleRadioChange = (titleId, field, value) => {
     setFormData((prevData) => {
-      const updatedData = {
-        ...prevData,
-        [id]: {
-          ...prevData[id],
-          ocularHistoryAndExaminationTitleInfoId: id,
+      const dtos = [...(prevData.ocularHistoryAndExaminationInfoDTOs || [])];
+      const existingIndex = dtos.findIndex(
+        dto => dto.ocularHistoryAndExaminationTitleInfoId === titleId
+      );
+
+      if (existingIndex >= 0) {
+        dtos[existingIndex] = {
+          ...dtos[existingIndex],
+          [field]: JSON.parse(value)
+        };
+      } else {
+        dtos.push({
+          ocularHistoryAndExaminationTitleInfoId: titleId,
           [field]: JSON.parse(value),
-        },
-      };
+          odDuration: null,
+          osDuration: null
+        });
+      }
 
-      console.log(updatedData);
-      dispatch(saveSectionFData(updatedData));
-      return updatedData;
-    });
-  };
-  console.log(dtos);
-
-  const handleDurationChange = (id, field, value) => {
-    setFormData((prevData) => {
-      // console.log(prevData[id][field]);
       const updatedData = {
         ...prevData,
-        [id]: {
-          ...prevData[id],
-          ocularHistoryAndExaminationTitleInfoId: id,
-          [`${field}Duration`]: prevData[id][field] ? parseInt(value) : null,
-        },
+        ocularHistoryAndExaminationInfoDTOs: dtos
       };
+
       dispatch(saveSectionFData(updatedData));
       return updatedData;
     });
   };
 
-  // Handle form field changes
+  const handleDurationChange = (titleId, field, value) => {
+    setFormData((prevData) => {
+      const dtos = [...(prevData.ocularHistoryAndExaminationInfoDTOs || [])];
+      const existingIndex = dtos.findIndex(
+        dto => dto.ocularHistoryAndExaminationTitleInfoId === titleId
+      );
+
+      if (existingIndex >= 0) {
+        dtos[existingIndex] = {
+          ...dtos[existingIndex],
+          [`${field}Duration`]: value ? parseInt(value) : null
+        };
+      } else {
+        dtos.push({
+          ocularHistoryAndExaminationTitleInfoId: titleId,
+          isOD: false,
+          isOS: false,
+          [`${field}Duration`]: value ? parseInt(value) : null
+        });
+      }
+
+      const updatedData = {
+        ...prevData,
+        ocularHistoryAndExaminationInfoDTOs: dtos
+      };
+
+      dispatch(saveSectionFData(updatedData));
+      return updatedData;
+    });
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prevData) => {
-      const updatedData = { ...prevData, [name]:parseInt(value,10)||null };
-      dispatch(saveSectionFData(updatedData)); // Save data to Redux
+      const updatedData = {
+        ...prevData,
+        [name]: value ? parseInt(value) : null
+      };
+      dispatch(saveSectionFData(updatedData));
       return updatedData;
     });
   };
 
-  const handleNextPage = async() => {
-    try{
-      dispatch(saveSectionFData(formData)); 
-      const payload = {
-        ...sectionBData,
-        ...sectionCData,
-        ...sectionDData,
-        ...sectionEData,
-        ...formData,
-        patientInfoId, 
-        id 
+  const isFormComplete = () => {
+    const requiredFields = [
+      'testType',
+      'presentingvisualacuityDistanceOD',
+      'presentingvisualacuityDistanceOS',
+      'unaidedvisualacuityDistanceOD',
+      'unaidedvisualacuityDistanceOS',
+      'bestcorrectedvisualacuityDistanceOD',
+      'bestcorrectedvisualacuityDistanceOS'
+    ];
+
+    const hasRequiredFields = requiredFields.every(field => 
+      formData[field] !== null && formData[field] !== undefined
+    );
+
+    const hasOcularHistory = formData.ocularHistoryAndExaminationInfoDTOs?.length > 0;
+
+    return hasRequiredFields && hasOcularHistory;
+  };
+
+  const handleNextPage = async () => {
+    try {
+      const normalizedData = {
+        ...normalizeFormData(formData),
+        registryInfoId
       };
-      console.log("Section F Payload:", payload);
 
-      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
+      const isComplete = isFormComplete();
+      if (updateFormStatus) {
+        updateFormStatus('Ocular-History', isComplete);
+      }
 
-       // Update the selected alphabet and navigate
-       const nextAlphabet = 'External-Examination';
-       setSelectedAlphabet(nextAlphabet);
-       localStorage.setItem('selectedAlphabet', nextAlphabet);
-       navigate(`/section-${nextAlphabet}`);
+      await dispatch(addOcularHistory({ registryData: normalizedData })).unwrap();
+      
+      const nextAlphabet = 'External-Examination';
+      setSelectedAlphabet(nextAlphabet);
+      localStorage.setItem('selectedAlphabet', nextAlphabet);
+      navigate(`/section-${nextAlphabet}`);
 
-      handleNextClick(); // Call the function provided by the Layout to navigate
-
-    }catch(error){
-      console.error("Error updating registry info:", error);
+      handleNextClick();
+    } catch (error) {
+      console.error("Error submitting ocular history:", error);
+      alert("Failed to submit ocular history. Please try again.");
     }
   };
 
-
   const handlePreviousPage = () => {
-    dispatch(saveSectionFData(formData)); // Ensure data is saved before navigation
-    handlePreviousClick(); // Call the function provided by the Layout to navigate
+    dispatch(saveSectionFData(formData));
+    handlePreviousClick();
   };
 
-  // console.log(ocularHistoryTitles)
+  const getExistingData = (titleId) => {
+    return formData.ocularHistoryAndExaminationInfoDTOs?.find(
+      dto => dto.ocularHistoryAndExaminationTitleInfoId === titleId
+    ) || {};
+  };
 
   return (
     <Box
@@ -226,121 +224,115 @@ const SectionF = ({
       </Typography>
 
       <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Typography variant="subtitle1" marginBottom={2}>
-            Any Present Eye Complaint
-          </Typography>
-        </Grid>
-
         {loading ? (
-          <CircularProgress />
+          <Grid item xs={12} sx={{ textAlign: 'center' }}>
+            <CircularProgress />
+          </Grid>
         ) : error ? (
-          <Typography color="error">Failed to fetch titles: {error}</Typography>
+          <Grid item xs={12}>
+            <Typography color="error">Failed to fetch titles: {error}</Typography>
+          </Grid>
         ) : (
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Title</TableCell>
-                  <TableCell align="center">OD</TableCell>
-                  <TableCell align="center">OS</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {ocularHistoryTitles.map((title) => (
-                  <TableRow key={title.id}>
-                    <TableCell>{title.name}</TableCell>
-                    <TableCell align="center">
-                      <FormControl component="fieldset">
-                        <RadioGroup
-                          row
-                          value={formData[title.id]?.isOD ? true : false}
-                          onChange={(e) =>
-                            handleRadioChange(title.id, "isOD", e.target.value)
-                          }
-                        >
-                          <FormControlLabel
-                            value={true}
-                            control={<Radio />}
-                            label="Yes"
-                          />
-                          <FormControlLabel
-                            value={false}
-                            control={<Radio />}
-                            label="No"
-                          />
-                        </RadioGroup>
-                      </FormControl>
-                      {formData[title.id]?.isOD && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="dense"
-                          label="Duration (OD)"
-                          value={formData[title.id]?.odDuration || null}
-                          onChange={(e) =>
-                            handleDurationChange(
-                              title.id,
-                              "od",
-                              e.target.value
-                            )
-                          }
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell align="center">
-                      <FormControl component="fieldset">
-                        <RadioGroup
-                          row
-                          value={formData[title.id]?.isOS ? true : false}
-                          onChange={(e) =>
-                            handleRadioChange(title.id, "isOS", e.target.value)
-                          }
-                        >
-                          <FormControlLabel
-                            value={true}
-                            control={<Radio />}
-                            label="Yes"
-                          />
-                          <FormControlLabel
-                            value={false}
-                            control={<Radio />}
-                            label="No"
-                          />
-                        </RadioGroup>
-                      </FormControl>
-                      {formData[title.id]?.isOS && (
-                        <TextField
-                          fullWidth
-                          size="small"
-                          margin="dense"
-                          label="Duration (OS)"
-                          value={formData[title.id]?.osDuration || null}
-                          onChange={(e) =>
-                            handleDurationChange(
-                              title.id,
-                              "os",
-                              e.target.value
-                            )
-                          }
-                        />
-                      )}
-                    </TableCell>
+          <Grid item xs={12}>
+            <TableContainer component={Paper}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Title</TableCell>
+                    <TableCell align="center">OD</TableCell>
+                    <TableCell align="center">OS</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {ocularHistoryTitles.map((title) => {
+                    const existingData = getExistingData(title.id);
+                    return (
+                      <TableRow key={title.id}>
+                        <TableCell>{title.name}</TableCell>
+                        <TableCell align="center">
+                          <FormControl component="fieldset">
+                            <RadioGroup
+                              row
+                              value={existingData.isOD?.toString() || "false"}
+                              onChange={(e) =>
+                                handleRadioChange(title.id, "isOD", e.target.value)
+                              }
+                            >
+                              <FormControlLabel
+                                value="true"
+                                control={<Radio />}
+                                label="Yes"
+                              />
+                              <FormControlLabel
+                                value="false"
+                                control={<Radio />}
+                                label="No"
+                              />
+                            </RadioGroup>
+                          </FormControl>
+                          {existingData.isOD && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="dense"
+                              label="Duration (OD)"
+                              value={existingData.odDuration || ""}
+                              onChange={(e) =>
+                                handleDurationChange(title.id, "od", e.target.value)
+                              }
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell align="center">
+                          <FormControl component="fieldset">
+                            <RadioGroup
+                              row
+                              value={existingData.isOS?.toString() || "false"}
+                              onChange={(e) =>
+                                handleRadioChange(title.id, "isOS", e.target.value)
+                              }
+                            >
+                              <FormControlLabel
+                                value="true"
+                                control={<Radio />}
+                                label="Yes"
+                              />
+                              <FormControlLabel
+                                value="false"
+                                control={<Radio />}
+                                label="No"
+                              />
+                            </RadioGroup>
+                          </FormControl>
+                          {existingData.isOS && (
+                            <TextField
+                              fullWidth
+                              size="small"
+                              margin="dense"
+                              label="Duration (OS)"
+                              value={existingData.osDuration || ""}
+                              onChange={(e) =>
+                                handleDurationChange(title.id, "os", e.target.value)
+                              }
+                            />
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
         )}
 
-        {/* Eye Evaluation */}
         <Grid item xs={12}>
           <FormControl component="fieldset">
             <Typography variant="subtitle1">Eye Evaluation</Typography>
             <RadioGroup
               row
-              name="eyeEvaluation"
-              value={formData.eyeEvaluation || null}
+              name="testType"
+              value={formData.testType?.toString() || ""}
               onChange={handleChange}
             >
               <FormControlLabel
@@ -357,88 +349,79 @@ const SectionF = ({
           </FormControl>
         </Grid>
 
-        {/* Visual Acuity */}
         <Grid item xs={12}>
           <Typography variant="subtitle1" marginBottom={2}>
             Visual Acuity
           </Typography>
         </Grid>
+
         {[
-          "presentingvisualacuityDistance",
-          "unaidedvisualacuityDistance",
-          "bestcorrectedvisualacuityDistance",
-        ].map((type, index) => (
-          <React.Fragment key={index}>
+          { prefix: 'presentingvisualacuity', label: 'Presenting Visual Acuity' },
+          { prefix: 'unaidedvisualacuity', label: 'Unaided Visual Acuity' },
+          { prefix: 'bestcorrectedvisualacuity', label: 'Best Corrected Visual Acuity' }
+        ].map((field) => (
+          <React.Fragment key={field.prefix}>
+            <Grid item xs={12}>
+              <Typography variant="subtitle2">{field.label}</Typography>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label={`${type.replace(/([a-z])([A-Z])/g, "$1 $2")} (OD)`}
-                name={`${type}OD`}
-                value={parseInt(formData[`${type}OD`]) || null}
-                onChange={handleChange }
+                label="Distance OD"
+                name={`${field.prefix}DistanceOD`}
+                value={formData[`${field.prefix}DistanceOD`] || ""}
+                onChange={handleChange}
                 variant="outlined"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label={`${type.replace(/([a-z])([A-Z])/g, "$1 $2")} (OS)`}
-                name={`${type}OS`}
-                value={parseInt(formData[`${type}OS`]) || null}
-                onChange={handleChange }
-                variant="outlined"
-              />
-            </Grid>
-          </React.Fragment>
-        ))}
-        {[
-          "presentingvisualacuityNear",
-          "unaidedvisualacuityNear",
-          "bestcorrectedvisualacuityNear",
-        ].map((type, index) => (
-          <React.Fragment key={index + 3}>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label={`${type.replace(/([a-z])([A-Z])/g, "$1 $2")} (OD)`}
-                name={`${type}OD`}
-                value={parseInt(formData[`${type}OD`]) || null}
-                onChange={handleChange }
+                label="Distance OS"
+                name={`${field.prefix}DistanceOS`}
+                value={formData[`${field.prefix}DistanceOS`] || ""}
+                onChange={handleChange}
                 variant="outlined"
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label={`${type.replace(/([a-z])([A-Z])/g, "$1 $2")} (OS)`}
-                name={`${type}OS`}
-                value={parseInt(formData[`${type}OS`]) || null}
-                onChange={handleChange }
+                label="Near OD"
+                name={`${field.prefix}NearOD`}
+                value={formData[`${field.prefix}NearOD`] || ""}
+                onChange={handleChange}
+                variant="outlined"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Near OS"
+                name={`${field.prefix}NearOS`}
+                value={formData[`${field.prefix}NearOS`] || ""}
+                onChange={handleChange}
                 variant="outlined"
               />
             </Grid>
           </React.Fragment>
         ))}
 
-        {/* Navigation Buttons */}
         <Grid item xs={12}>
           <Button
-            fullWidth
             variant="contained"
             color="secondary"
             onClick={handlePreviousPage}
+            sx={{ marginRight: 2 }}
           >
-            Previous Page
+            Previous
           </Button>
-        </Grid>
-        <Grid item xs={12}>
           <Button
-            fullWidth
             variant="contained"
             color="primary"
             onClick={handleNextPage}
           >
-            Next Page
+            Submit
           </Button>
         </Grid>
       </Grid>

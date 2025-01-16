@@ -22,8 +22,16 @@ import patientInfoReducer from '../features/patientInfoSlice.js'
 import drRegistryReducer from '../features/updateFormSlice.js'
 import patientDetailReducer from '../features/patientDetailSlice.js'
 import dataReducer from '../features/dataByDrregistryId.js'
-import medicalHistoryReducer from '../features/medicalHistorySlice.js';
-
+import medicalHistoryReducer from '../features/medicalHistorySlice.js'
+import smokingHistoryReducer from '../features/smokingHistorySlice.js'
+import investigationReducer from '../features/investigationSlice.js'
+import ocularHistoryReducer from '../features/ocularHistorySlice.js'
+import externalExaminationReducer from '../features/externalExaminationSlice.js'
+import slitlampExaminationReducer from '../features/slitlampExaminationSlice.js'
+import fundusExaminationReducer from '../features/fundusExaminationSlice.js'
+import registryReducer from '../features/addRegistry.js'
+import historyReducer from '../features/historySlice.js'
+import dataSourceReducer from '../features/dataSourceSlice.js'
 
 const store = configureStore({
   reducer: {
@@ -51,6 +59,16 @@ const store = configureStore({
     patientDetail: patientDetailReducer,
     data:dataReducer,
     medicalHistory: medicalHistoryReducer,
+    smokingHistory: smokingHistoryReducer,
+    registry:registryReducer,
+    investigations:investigationReducer,
+    ocularHistory:ocularHistoryReducer,
+    externalExamination:externalExaminationReducer,
+    slitlampExamination:slitlampExaminationReducer,
+    fundusExamination:fundusExaminationReducer,
+    registry:registryReducer,
+    history:historyReducer,
+    dataSource:dataSourceReducer
     },
 });
 

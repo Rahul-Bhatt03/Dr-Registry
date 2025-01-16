@@ -2,12 +2,11 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "axios";
 import { BASE_URL } from "./endPoints";
 
-// Thunk for adding patient information
 export const addPatientInfo = createAsyncThunk(
   "patientInfo/addPatientInfo",
   async (patientData, { rejectWithValue }) => {
     try {
-      const token = localStorage.getItem("token"); // Retrieve the token from local storage
+      const token = localStorage.getItem("token");
       if (!token) {
         throw new Error("Authentication token is missing. Please log in.");
       }
@@ -17,7 +16,7 @@ export const addPatientInfo = createAsyncThunk(
         patientData,
         {
           headers: {
-            Authorization: `Bearer ${token}`, // Include the token in the headers
+            Authorization: `Bearer ${token}`,
           },
         }
       );

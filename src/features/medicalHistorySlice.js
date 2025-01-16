@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from 'axios';
+import { BASE_URL } from './endPoints';
 
 // Async thunk to handle the API call
 export const addMedicalHistory = createAsyncThunk(
@@ -13,7 +14,7 @@ export const addMedicalHistory = createAsyncThunk(
       }
 
       const response = await axios.post(
-        'https://164.68.118.52:82/api/RegistryInfo/addMedicalHistory',
+        `${BASE_URL}/RegistryInfo/addMedicalHistory`,
         data,
         {
           headers: {

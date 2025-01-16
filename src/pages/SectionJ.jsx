@@ -16,6 +16,8 @@ import {
   TableBody,
   TableCell,
   TableContainer,
+  FormGroup,
+  Checkbox,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -29,8 +31,9 @@ import { fetchIntravitrealInjectionTypes } from "../features/intravitrealInjecti
 import { fetchDiabeticRetinopathyTimes } from "../features/diabeticRetinopathyTimesSlice";
 import { fetchSurgeryTypes } from "../features/surgerySlice.js";
 import { styled } from "@mui/material/styles";
-import { updateDrRegistryInfo } from '../features/updateFormSlice.js'; 
 import { toast } from "react-toastify";
+import { addDataSource } from "../features/dataSourceSlice.js";
+import { addDiabeticRetinopathy } from "../features/diabeticRetinopathySlice.js";
 
 
 const SectionJ = ({
@@ -59,6 +62,10 @@ const SectionJ = ({
   const [sourceData,setSourceData]=useState([]);
   const [loading, setLoading] = useState(false); // Add loading state
   const [selectedOption, setSelectedOption] = useState("");
+
+  const intravitrealInjectionTypes = useSelector((state) => state.intravitrealInjection.data);
+  const diabeticRetinopathyTimes = useSelector((state) => state.diabeticRetinopathy.data);
+  const surgeryTypes = useSelector((state) => state.surgery.types);
   const followUps = useSelector((state) => state.generic.data);
   const followUpsLoading = useSelector((state) => state.generic.loading);
   const selectedFollowUp = useSelector(
@@ -95,26 +102,116 @@ const SectionJ = ({
     };
   };
 
-  const handleSourceDataChange=(index,field,value)=>{
-    setSourceData(prevData=>{
-      const newData=[...prevData];
-      if(!newData[index]){
-        newData[index]={id:0,isActive:true};
-      }
-      newData[index]={
-        ...newData[index],
-        [field]:value
-      };
-      return newData;
-    })
-  }
-
+  const [odIntravitrealSelections, setOdIntravitrealSelections] = useState(
+    sectionJ?.diabeticRatinopathyIntravitrealInjectionTypeOD?.map(item => item.intravitrealInjectionTypeId) || []
+  );
+  
+  const [osIntravitrealSelections, setOsIntravitrealSelections] = useState(
+    sectionJ?.diabeticRatinopathyIntravitrealInjectionTypeOS?.map(item => item.intravitrealInjectionTypeId) || []
+  );
+  
+  const [odSurgerySelections, setOdSurgerySelections] = useState(
+    sectionJ?.diabeticRatinopathySurgeryTypeOD?.map(item => item.surgeryTypeId) || []
+  );
+  
+  const [osSurgerySelections, setOsSurgerySelections] = useState(
+    sectionJ?.diabeticRatinopathySurgeryTypeOS?.map(item => item.surgeryTypeId) || []
+  );
+  
   useEffect(() => {
     dispatch(fetchFollowUps());
     dispatch(fetchIntravitrealInjectionTypes());
     dispatch(fetchDiabeticRetinopathyTimes());
     dispatch(fetchSurgeryTypes());
-  }, []);
+  }, [dispatch]);
+
+  const handleIntravitrealCheckboxChange = (side, typeId) => {
+    if (side === 'OD') {
+      setOdIntravitrealSelections(prev => {
+        const newSelections = prev.includes(typeId)
+          ? prev.filter(id => id !== typeId)
+          : [...prev, typeId];
+        
+        // Update form data with new selections
+        setFormDataToSubmit(prevForm => ({
+          ...prevForm,
+          diabeticRatinopathyIntravitrealInjectionTypeOD: newSelections.map(id => ({
+            intravitrealInjectionTypeId: id
+          }))
+        }));
+        
+        return newSelections;
+      });
+    } else {
+      setOsIntravitrealSelections(prev => {
+        const newSelections = prev.includes(typeId)
+          ? prev.filter(id => id !== typeId)
+          : [...prev, typeId];
+        
+        // Update form data with new selections
+        setFormDataToSubmit(prevForm => ({
+          ...prevForm,
+          diabeticRatinopathyIntravitrealInjectionTypeOS: newSelections.map(id => ({
+            intravitrealInjectionTypeId: id
+          }))
+        }));
+        
+        return newSelections;
+      });
+    }
+  };
+
+  // Handler for surgery type checkbox changes
+  const handleSurgeryCheckboxChange = (side, typeId) => {
+    if (side === 'OD') {
+      setOdSurgerySelections(prev => {
+        const newSelections = prev.includes(typeId)
+          ? prev.filter(id => id !== typeId)
+          : [...prev, typeId];
+        
+        // Update form data with new selections
+        setFormDataToSubmit(prevForm => ({
+          ...prevForm,
+          diabeticRatinopathySurgeryTypeOD: newSelections.map(id => ({
+            surgeryTypeId: id
+          }))
+        }));
+        
+        return newSelections;
+      });
+    } else {
+      setOsSurgerySelections(prev => {
+        const newSelections = prev.includes(typeId)
+          ? prev.filter(id => id !== typeId)
+          : [...prev, typeId];
+        
+        // Update form data with new selections
+        setFormDataToSubmit(prevForm => ({
+          ...prevForm,
+          diabeticRatinopathySurgeryTypeOS: newSelections.map(id => ({
+            surgeryTypeId: id
+          }))
+        }));
+        
+        return newSelections;
+      });
+    }
+  };
+
+ // Handler for source data changes
+ const handleSourceDataChange = (index, field, value) => {
+  setSourceData(prevData => {
+    const newData = [...prevData];
+    if (!newData[index]) {
+      newData[index] = { id: 0, isActive: true };
+    }
+    newData[index] = {
+      ...newData[index],
+      [field]: value
+    };
+    return newData;
+  });
+};
 
   const handleFollowUpChange = (event) => {
     const selectedId = event.target.value;
@@ -126,13 +223,6 @@ const SectionJ = ({
       saveSectionJData({ ...sectionJ, followUpId: JSON.parse(selectedId) })
     );
   };
-
-  const intravitrealInjectionTypes = useSelector(
-    (state) => state.intravitrealInjection.data
-  );
-  const diabeticRetinopathyTimes = useSelector(
-    (state) => state.diabeticRetinopathy.data
-  );
 
   // Get data for all sections from Redux store
   const allSectionsData = useSelector((state) => state.form);
@@ -209,61 +299,82 @@ const SectionJ = ({
     });
   };
 
-    const handleSubmit = async () => {
-      event.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
 
-      setLoading(true);
-      try {
+    try {
+      // Filter out empty rows from sourceData
+      const validSourceData = sourceData.filter(item =>
+        item && (item.sourceName || item.fileNo)
+      ).map(item => ({
+        id: item.id || 0,
+        sourceName: item.sourceName || null,
+        fileNo: item.fileNo || null,
+        isActive: true
+      }));
 
-//fiter out empty rows from sourceData
-const validSourceData=sourceData.filter(item=>
-  item && (item.sourceName||item.fileNo)
-).map(item=>({
-  id:item.id||0,
-  sourceName:item.sourceName||null,
-  fileNo: item.fileNo||null,
-  isActive:true
-}))
-
-        const payload = {
-          ...sectionBData,
-          ...sectionCData,
-          ...sectionDData,
-          ...sectionEData,
-          ...sectionFData,
-          ...sectionGData,
-          ...sectionHData,
-          ...sectionIData,
-          ...formDataToSubmit,
-          patientInfoId,
-          id,
-          updateDataSourceDTOs: validSourceData, // Add the source data array here
-        };
-        console.log("Section J Payload:", payload);
-
-    
-        // Dispatch the update action
-        await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
-    
-        toast.success("Form submitted successfully!");
-
-         // Update the selected alphabet and navigate
-         const nextAlphabet = 'Demographic-History';
-         setSelectedAlphabet(nextAlphabet);
-         localStorage.setItem('selectedAlphabet', nextAlphabet);
-         navigate(`/section-${nextAlphabet}`);
-        toast.success("Form submitted successfully!");
-      
-      } catch (error) {
-        console.error("Error submitting form data:", error);
-        toast.error(
-          error.message || "There was an error submitting the form. Please try again."
-        );
-      } finally {
-        setLoading(false);
+      // Process data source results
+      let dataSourceResults = [];
+      if (validSourceData.length > 0) {
+        try {
+          const dataSourceResponse = await dispatch(addDataSource({
+            registryInfoId: id,
+            dataSources: validSourceData
+          })).unwrap();
+          dataSourceResults = dataSourceResponse;
+        } catch (error) {
+          console.error("Error adding data sources:", error);
+          throw new Error("Failed to add data sources");
+        }
       }
-    };
-    
+
+      // Prepare the payload with all selections
+      const payload = {
+        registryInfoId: id,
+        patientInfoId,
+        ...formDataToSubmit,
+        diabeticRatinopathyIntravitrealInjectionTypeOD: odIntravitrealSelections.map(typeId => ({
+          intravitrealInjectionTypeId: typeId
+        })),
+        diabeticRatinopathyIntravitrealInjectionTypeOS: osIntravitrealSelections.map(typeId => ({
+          intravitrealInjectionTypeId: typeId
+        })),
+        diabeticRatinopathySurgeryTypeOD: odSurgerySelections.map(typeId => ({
+          surgeryTypeId: typeId
+        })),
+        diabeticRatinopathySurgeryTypeOS: osSurgerySelections.map(typeId => ({
+          surgeryTypeId: typeId
+        })),
+        updateDataSourceDTOs: dataSourceResults.length > 0 ? dataSourceResults : validSourceData,
+      };
+
+      // Clean up payload
+      Object.keys(payload).forEach(key => {
+        if (payload[key] === undefined || payload[key] === null) {
+          delete payload[key];
+        }
+      });
+
+      // Submit the form data
+      await dispatch(addDiabeticRetinopathy({ registryData: payload })).unwrap();
+      
+      toast.success("Form submitted successfully!");
+
+      // Navigate to next section
+      const nextAlphabet = 'Demographic-History';
+      setSelectedAlphabet(nextAlphabet);
+      localStorage.setItem('selectedAlphabet', nextAlphabet);
+      navigate(`/section-${nextAlphabet}`);
+
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error(error.message || "Failed to submit form");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   const handlePreviousPage = () => {
     dispatch(saveSectionJData(formDataToSubmit)); // Save current form data before navigating
@@ -419,282 +530,107 @@ const validSourceData=sourceData.filter(item=>
         </Grid>
 
         {/* Specify (Intravitreal Injection) & Time Section */}
-        <Box
-          sx={{
-            padding: "20px",
-            backgroundColor: "#f4f6f8",
-            borderRadius: "8px",
-            boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
-            marginTop: "20px",
-          }}
-        >
+        <Box sx={{
+          padding: "20px",
+          backgroundColor: "#f4f6f8",
+          borderRadius: "8px",
+          boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+          marginTop: "20px",
+        }}>
           <Grid container spacing={3}>
             {/* OD Section */}
-            <Grid
-              item
-              xs={12}
-              sm={6}
-              md={4}
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-              }}
-            >
-              <Typography
-                variant="h6"
-                gutterBottom
-                sx={{ fontWeight: 600, color: "#3f51b5" }}
-              >
-                Right Eye (OD)
+            <Grid item xs={12} sm={6} sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: "#3f51b5" }}>
+                Right Eye (OD) - Intravitreal Injection
               </Typography>
 
-              {/* Yes/No for Specify (Intravitreal Injection) - OD */}
-              <Typography
-                variant="subtitle1"
-                sx={{ marginBottom: "8px", fontWeight: 500 }}
-              >
-                Specify (Intravitreal Injection)?
-              </Typography>
-              <div
-                style={{ display: "flex", gap: "16px", marginBottom: "16px" }}
-              >
-                <Button
-                  variant={
-                    formDataToSubmit.isDiabeticRetinopathyODTreatmentIntravitrealInjection
-                      ? "contained"
-                      : "outlined"
-                  }
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        name: "isDiabeticRetinopathyODTreatmentIntravitrealInjection",
-                        value: true,
-                      },
-                    })
-                  }
-                >
-                  Yes
-                </Button>
-                <Button
-                  variant={
-                    !formDataToSubmit.isDiabeticRetinopathyODTreatmentIntravitrealInjection
-                      ? "contained"
-                      : "outlined"
-                  }
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        name: "isDiabeticRetinopathyODTreatmentIntravitrealInjection",
-                        value: false,
-                      },
-                    })
-                  }
-                >
-                  No
-                </Button>
-              </div>
-
-              {/* DDL and Additional Fields for OD */}
-              {formDataToSubmit.isDiabeticRetinopathyODTreatmentIntravitrealInjection && (
-                <>
-                  <TextField
-                    select
-                    label="Specify Type"
-                    value={formDataToSubmit.odIntravitrealInjectionTypeId || ""}
-                    onChange={(e) =>
-                      handleInputChange({
-                        target: {
-                          name: "odIntravitrealInjectionTypeId",
-                          value: parseInt(e.target.value),
-                        },
-                      })
+              <FormGroup>
+                {intravitrealInjectionTypes.map((type) => (
+                  <FormControlLabel
+                    key={type.id}
+                    control={
+                      <Checkbox
+                        checked={odIntravitrealSelections.includes(type.id)}
+                        onChange={() => handleIntravitrealCheckboxChange('OD', type.id)}
+                      />
                     }
-                    fullWidth
-                    SelectProps={{
-                      native: true,
-                    }}
-                    sx={{
-                      marginBottom: "16px",
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "8px",
-                      },
-                    }}
-                  >
-                    <option value="">Select</option>
-                    {intravitrealInjectionTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                  </TextField>
+                    label={type.name}
+                  />
+                ))}
+              </FormGroup>
 
-                  {["Anti VEGF", "Others"].includes(
-                    intravitrealInjectionTypes.find(
-                      (type) =>
-                        type.id ===
-                        formDataToSubmit.odIntravitrealInjectionTypeId
-                    )?.name
-                  ) && (
-                    <TextField
-                      label="Specify Details"
-                      value={
-                        formDataToSubmit.odIntravitrealInjectionOtherType || ""
-                      }
-                      onChange={(e) =>
-                        handleInputChange({
-                          target: {
-                            name: "odIntravitrealInjectionOtherType",
-                            value: e.target.value,
-                          },
-                        })
-                      }
-                      fullWidth
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "8px",
-                        },
-                      }}
-                    />
-                  )}
-                </>
+              {/* Additional fields for Anti VEGF or Others */}
+              {odIntravitrealSelections.some(id => 
+                ["Anti VEGF", "Others"].includes(
+                  intravitrealInjectionTypes.find(type => type.id === id)?.name
+                )
+              ) && (
+                <TextField
+                  label="Specify Details"
+                  value={formDataToSubmit.odIntravitrealInjectionOtherType || ""}
+                  onChange={(e) => handleInputChange({
+                    target: {
+                      name: "odIntravitrealInjectionOtherType",
+                      value: e.target.value,
+                    },
+                  })}
+                  fullWidth
+                  sx={{ marginTop: 2 }}
+                />
               )}
             </Grid>
 
             {/* OS Section */}
-            <Grid
-              item
-              xs={12}
-              sm={6}
-              md={4}
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-              }}
-            >
-              <Typography
-                variant="h6"
-                gutterBottom
-                sx={{ fontWeight: 600, color: "#3f51b5" }}
-              >
-                Left Eye (OS)
+            <Grid item xs={12} sm={6} sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+            }}>
+              <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: "#3f51b5" }}>
+                Left Eye (OS) - Intravitreal Injection
               </Typography>
 
-              {/* Yes/No for Specify (Intravitreal Injection) - OS */}
-              <Typography
-                variant="subtitle1"
-                sx={{ marginBottom: "8px", fontWeight: 500 }}
-              >
-                Specify (Intravitreal Injection)?
-              </Typography>
-              <div
-                style={{ display: "flex", gap: "16px", marginBottom: "16px" }}
-              >
-                <Button
-                  variant={
-                    formDataToSubmit.isDiabeticRetinopathyOSTreatmentIntravitrealInjection
-                      ? "contained"
-                      : "outlined"
-                  }
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        name: "isDiabeticRetinopathyOSTreatmentIntravitrealInjection",
-                        value: true,
-                      },
-                    })
-                  }
-                >
-                  Yes
-                </Button>
-                <Button
-                  variant={
-                    !formDataToSubmit.isDiabeticRetinopathyOSTreatmentIntravitrealInjection
-                      ? "contained"
-                      : "outlined"
-                  }
-                  onClick={() =>
-                    handleInputChange({
-                      target: {
-                        name: "isDiabeticRetinopathyOSTreatmentIntravitrealInjection",
-                        value: false,
-                      },
-                    })
-                  }
-                >
-                  No
-                </Button>
-              </div>
-
-              {/* DDL and Additional Fields for OS */}
-              {formDataToSubmit.isDiabeticRetinopathyOSTreatmentIntravitrealInjection && (
-                <>
-                  <TextField
-                    select
-                    label="Specify Type"
-                    value={formDataToSubmit.osIntravitrealInjectionTypeId || ""}
-                    onChange={(e) =>
-                      handleInputChange({
-                        target: {
-                          name: "osIntravitrealInjectionTypeId",
-                          value: parseInt(e.target.value),
-                        },
-                      })
+              <FormGroup>
+                {intravitrealInjectionTypes.map((type) => (
+                  <FormControlLabel
+                    key={type.id}
+                    control={
+                      <Checkbox
+                        checked={osIntravitrealSelections.includes(type.id)}
+                        onChange={() => handleIntravitrealCheckboxChange('OS', type.id)}
+                      />
                     }
-                    fullWidth
-                    SelectProps={{
-                      native: true,
-                    }}
-                    sx={{
-                      marginBottom: "16px",
-                      "& .MuiOutlinedInput-root": {
-                        borderRadius: "8px",
-                      },
-                    }}
-                  >
-                    <option value="">Select</option>
-                    {intravitrealInjectionTypes.map((type) => (
-                      <option key={type.id} value={type.id}>
-                        {type.name}
-                      </option>
-                    ))}
-                  </TextField>
+                    label={type.name}
+                  />
+                ))}
+              </FormGroup>
 
-                  {["Anti VEGF", "Others"].includes(
-                    intravitrealInjectionTypes.find(
-                      (type) =>
-                        type.id ===
-                        formDataToSubmit.osIntravitrealInjectionTypeId
-                    )?.name
-                  ) && (
-                    <TextField
-                      label="Specify Details"
-                      value={
-                        formDataToSubmit.osIntravitrealInjectionOtherType || ""
-                      }
-                      onChange={(e) =>
-                        handleInputChange({
-                          target: {
-                            name: "osIntravitrealInjectionOtherType",
-                            value: e.target.value,
-                          },
-                        })
-                      }
-                      fullWidth
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          borderRadius: "8px",
-                        },
-                      }}
-                    />
-                  )}
-                </>
+              {/* Additional fields for Anti VEGF or Others */}
+              {osIntravitrealSelections.some(id => 
+                ["Anti VEGF", "Others"].includes(
+                  intravitrealInjectionTypes.find(type => type.id === id)?.name
+                )
+              ) && (
+                <TextField
+                  label="Specify Details"
+                  value={formDataToSubmit.osIntravitrealInjectionOtherType || ""}
+                  onChange={(e) => handleInputChange({
+                    target: {
+                      name: "osIntravitrealInjectionOtherType",
+                      value: e.target.value,
+                    },
+                  })}
+                  fullWidth
+                  sx={{ marginTop: 2 }}
+                />
               )}
             </Grid>
-
+          </Grid>
+      
             {/* Separate Time Section */}
             <Grid item xs={12}>
               <Typography
@@ -755,130 +691,57 @@ const validSourceData=sourceData.filter(item=>
                 ))}
               </Grid>
             </Grid>
-          </Grid>
         </Box>
 
         {/* Treatment (Surgery) */}
-        <Box sx={{ marginTop: 4 }}>
+         <Box sx={{ marginTop: 4 }}>
           <Typography variant="h6" gutterBottom>
             Treatment (Surgery)
           </Typography>
 
-          {/* OD (Right Eye) Section */}
-          <Typography variant="subtitle1" gutterBottom>
-            OD (Right Eye)
-          </Typography>
-          <RadioGroup
-            name="odSurgeryPerformed"
-            value={formDataToSubmit.odSurgeryPerformed ? "yes" : "no"}
-            onChange={(e) => {
-              const value = e.target.value === "yes"; // Convert "yes"/"no" to boolean
-              setFormDataToSubmit((prev) => {
-                const updatedData = {
-                  ...prev,
-                  odSurgeryPerformed: value,
-                  odSurgeryType: null,
-                }; // Clear surgery type on toggle
-                dispatch(saveSectionJData(updatedData)); // Save to Redux
-                return updatedData;
-              });
-            }}
-            sx={{ display: "flex", flexDirection: "row", marginBottom: 2 }}
-          >
-            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-            <FormControlLabel value="no" control={<Radio />} label="No" />
-          </RadioGroup>
+          <Grid container spacing={3}>
+            {/* OD Surgery Section */}
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                OD (Right Eye) Surgery Types
+              </Typography>
+              <FormGroup>
+                {surgeryTypes.map((type) => (
+                  <FormControlLabel
+                    key={type.id}
+                    control={
+                      <Checkbox
+                        checked={odSurgerySelections.includes(type.id)}
+                        onChange={() => handleSurgeryCheckboxChange('OD', type.id)}
+                      />
+                    }
+                    label={type.name}
+                  />
+                ))}
+              </FormGroup>
+            </Grid>
 
-          {/* Conditional Dropdown for OD */}
-          {formDataToSubmit.odSurgeryPerformed && (
-            <TextField
-              select
-              label="Select OD Surgery Type"
-              value={formDataToSubmit.odSurgeryType || ""}
-              onChange={(e) => {
-                const value = parseInt(e.target.value, 10); // Convert the id to a numeric value
-                setFormDataToSubmit((prev) => {
-                  const updatedData = { ...prev, odSurgeryType: value };
-                  dispatch(saveSectionJData(updatedData)); // Save to Redux
-                  return updatedData;
-                });
-              }}
-              fullWidth
-              SelectProps={{
-                native: true,
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "8px",
-                },
-              }}
-            >
-              <option value="">Select</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </TextField>
-          )}
-
-          {/* OS (Left Eye) Section */}
-          <Typography variant="subtitle1" gutterBottom sx={{ marginTop: 4 }}>
-            OS (Left Eye)
-          </Typography>
-          <RadioGroup
-            name="osSurgeryPerformed"
-            value={formDataToSubmit.osSurgeryPerformed ? "yes" : "no"}
-            onChange={(e) => {
-              const value = e.target.value === "yes"; // Convert "yes"/"no" to boolean
-              setFormDataToSubmit((prev) => {
-                const updatedData = {
-                  ...prev,
-                  osSurgeryPerformed: value,
-                  osSurgeryType: null,
-                }; // Clear surgery type on toggle
-                dispatch(saveSectionJData(updatedData)); // Save to Redux
-                return updatedData;
-              });
-            }}
-            sx={{ display: "flex", flexDirection: "row", marginBottom: 2 }}
-          >
-            <FormControlLabel value="yes" control={<Radio />} label="Yes" />
-            <FormControlLabel value="no" control={<Radio />} label="No" />
-          </RadioGroup>
-
-          {/* Conditional Dropdown for OS */}
-          {formDataToSubmit.osSurgeryPerformed && (
-            <TextField
-              select
-              label="Select OS Surgery Type"
-              value={formDataToSubmit.osSurgeryType || ""}
-              onChange={(e) => {
-                const value = parseInt(e.target.value, 10); // Convert the id to a numeric value
-                setFormDataToSubmit((prev) => {
-                  const updatedData = { ...prev, osSurgeryType: value };
-                  dispatch(saveSectionJData(updatedData)); // Save to Redux
-                  return updatedData;
-                });
-              }}
-              fullWidth
-              SelectProps={{
-                native: true,
-              }}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  borderRadius: "8px",
-                },
-              }}
-            >
-              <option value="">Select</option>
-              {types.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.name}
-                </option>
-              ))}
-            </TextField>
-          )}
+            {/* OS Surgery Section */}
+            <Grid item xs={12} sm={6}>
+              <Typography variant="subtitle1" gutterBottom>
+                OS (Left Eye) Surgery Types
+              </Typography>
+              <FormGroup>
+                {surgeryTypes.map((type) => (
+                  <FormControlLabel
+                    key={type.id}
+                    control={
+                      <Checkbox
+                        checked={osSurgerySelections.includes(type.id)}
+                        onChange={() => handleSurgeryCheckboxChange('OS', type.id)}
+                      />
+                    }
+                    label={type.name}
+                  />
+                ))}
+              </FormGroup>
+            </Grid>
+          </Grid>
         </Box>
 
         {/* Follow-up Selection */}

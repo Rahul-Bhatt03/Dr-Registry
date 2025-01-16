@@ -16,88 +16,98 @@ import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { saveSectionGData } from "../features/sectionSlice.js";
 import { updateDrRegistryInfo } from '../features/updateFormSlice.js';
+import { addExternalExamination } from "../features/externalExaminationSlice.js";
 
 const SectionG = ({
   selectedAlphabet,
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
   const sectionGData = useSelector((state) => state.form.sectionG);
-  const sectionFData = useSelector((state) => state.form.sectionF);
-  const sectionEData = useSelector((state) => state.form.sectionE);
-  const sectionDData = useSelector((state) => state.form.sectionD);
-  const sectionBData = useSelector((state) => state.form.sectionB);
-  const sectionCData = useSelector((state) => state.form.sectionC);
-
   const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
-  const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
+  const registryInfoId = parseInt(localStorage.getItem('DrRegistryId'));
 
   const ocularMovementOptions = [
-    "Restricted Movement",
-    "Complete Paralysis",
-    "Partial Paralysis",
-    "Nystagmus",
-    "Other"
+    { id: 1, name: "Restricted Movement" },
+    { id: 2, name: "Complete Paralysis" },
+    { id: 3, name: "Partial Paralysis" },
+    { id: 4, name: "Nystagmus" },
+    { id: 5, name: "Other" }
   ];
 
   const pupilReactionOptions = [
-    "Sluggish",
-    "Non-reactive",
-    "RAPD",
-    "Irregular Shape",
-    "Other"
+    { id: 1, name: "Sluggish" },
+    { id: 2, name: "Non-reactive" },
+    { id: 3, name: "RAPD" },
+    { id: 4, name: "Irregular Shape" },
+    { id: 5, name: "Other" }
   ];
 
   const initialFormData = {
-    // Proptosis - initialize with false (boolean) for radio buttons
+    registryInfoId: registryInfoId || 0,
     isProptosisOD: false,
     isProptosisOS: false,
-    
-    // Ocular Movement - initialize with Normal selected
     isODocularmovementNormal: true,
     isODocularmovementAbnormal: false,
-    oDocularmovementAbnormal: null,
+    oDocularmovementAbnormal: "",
     isOSocularmovementNormal: true,
     isOSocularmovementAbnormal: false,
-    oSocularmovementAbnormal: null,
-    
-    // Pupil Reaction - initialize with Normal selected
+    oSocularmovementAbnormal: "",
     isODPupilReactionNormal: true,
     isODPupilReactionAbnormal: false,
-    odPupilReactionAbnormal: null,
+    odPupilReactionAbnormal: "",
     isOSPupilReactionNormal: true,
     isOSPupilReactionAbnormal: false,
-    osPupilReactionAbnormal: null,
-    
-    // Additional fields
+    osPupilReactionAbnormal: "",
+    extraOcularMovementAbnormalDTOOD: [],
+    extraOcularMovementAbnormalDTOOS: [],
+    pupilLightReactionAbnormalDTOOD: [],
+    pupilLightReactionAbnormalDTOOS: [],
     odOcularMovementType: "",
     osOcularMovementType: "",
     odPupilReactionType: "",
-    osPupilReactionType: "",
+    osPupilReactionType: ""
+  };
+
+  const isFormComplete = (data) => {
+    // Check if all required fields are filled
+    const odComplete = data.isODocularmovementNormal || 
+      (data.isODocularmovementAbnormal && data.oDocularmovementAbnormal) ||
+      (data.isODocularmovementAbnormal && data.odOcularMovementType && data.odOcularMovementType !== "Other");
+    
+    const osComplete = data.isOSocularmovementNormal ||
+      (data.isOSocularmovementAbnormal && data.oSocularmovementAbnormal) ||
+      (data.isOSocularmovementAbnormal && data.osOcularMovementType && data.osOcularMovementType !== "Other");
+    
+    const odPupilComplete = data.isODPupilReactionNormal ||
+      (data.isODPupilReactionAbnormal && data.odPupilReactionAbnormal) ||
+      (data.isODPupilReactionAbnormal && data.odPupilReactionType && data.odPupilReactionType !== "Other");
+    
+    const osPupilComplete = data.isOSPupilReactionNormal ||
+      (data.isOSPupilReactionAbnormal && data.osPupilReactionAbnormal) ||
+      (data.isOSPupilReactionAbnormal && data.osPupilReactionType && data.osPupilReactionType !== "Other");
+
+    // Also check Proptosis fields
+    const proptosisComplete = 
+      typeof data.isProptosisOD === 'boolean' && 
+      typeof data.isProptosisOS === 'boolean';
+
+    return odComplete && osComplete && odPupilComplete && osPupilComplete && proptosisComplete;
   };
 
   const [formData, setFormData] = useState(() => {
-    // If there's existing section data, use it; otherwise use initialFormData
-    const data = sectionGData || initialFormData;
-    // Ensure Proptosis values are booleans
-    return {
-      ...data,
-      isProptosisOD: typeof data.isProptosisOD === 'boolean' ? data.isProptosisOD : false,
-      isProptosisOS: typeof data.isProptosisOS === 'boolean' ? data.isProptosisOS : false
-    };
+    return { ...initialFormData, ...(sectionGData || {}) };
   });
 
   useEffect(() => {
     if (sectionGData) {
-      setFormData(prev => ({
-        ...sectionGData,
-        isProptosisOD: typeof sectionGData.isProptosisOD === 'boolean' ? sectionGData.isProptosisOD : false,
-        isProptosisOS: typeof sectionGData.isProptosisOS === 'boolean' ? sectionGData.isProptosisOS : false
-      }));
+      setFormData(sectionGData);
     }
   }, [sectionGData]);
 
@@ -113,7 +123,6 @@ const SectionG = ({
   const handleProptosisChange = (e) => {
     const { name, value } = e.target;
     const booleanValue = value === 'true';
-
     setFormData((prevData) => {
       const updatedData = { ...prevData, [name]: booleanValue };
       dispatch(saveSectionGData(updatedData));
@@ -128,9 +137,9 @@ const SectionG = ({
         ...prevData,
         [`is${eye}ocularmovementNormal`]: isNormal,
         [`is${eye}ocularmovementAbnormal`]: !isNormal,
-        [`o${eye}ocularmovementAbnormal`]: !isNormal ? prevData[`o${eye}ocularmovementAbnormal`] : null,
-        // Reset the type when switching back to normal
-        [`${eye.toLowerCase()}OcularMovementType`]: isNormal ? "" : prevData[`${eye.toLowerCase()}OcularMovementType`]
+        [`o${eye}ocularmovementAbnormal`]: !isNormal ? prevData[`o${eye}ocularmovementAbnormal`] : "",
+        [`${eye.toLowerCase()}OcularMovementType`]: !isNormal ? prevData[`${eye.toLowerCase()}OcularMovementType`] : "",
+        [`extraOcularMovementAbnormalDTO${eye}`]: !isNormal ? prevData[`extraOcularMovementAbnormalDTO${eye}`] : []
       };
       dispatch(saveSectionGData(updatedData));
       return updatedData;
@@ -144,33 +153,35 @@ const SectionG = ({
         ...prevData,
         [`is${eye}PupilReactionNormal`]: isNormal,
         [`is${eye}PupilReactionAbnormal`]: !isNormal,
-        [`o${eye.toLowerCase()}PupilReactionAbnormal`]: !isNormal ? prevData[`o${eye.toLowerCase()}PupilReactionAbnormal`] : null,
-        // Reset the type when switching back to normal
-        [`${eye.toLowerCase()}PupilReactionType`]: isNormal ? "" : prevData[`${eye.toLowerCase()}PupilReactionType`]
+        [`o${eye.toLowerCase()}PupilReactionAbnormal`]: !isNormal ? prevData[`o${eye.toLowerCase()}PupilReactionAbnormal`] : "",
+        [`${eye.toLowerCase()}PupilReactionType`]: !isNormal ? prevData[`${eye.toLowerCase()}PupilReactionType`] : "",
+        [`pupilLightReactionAbnormalDTO${eye}`]: !isNormal ? prevData[`pupilLightReactionAbnormalDTO${eye}`] : []
       };
       dispatch(saveSectionGData(updatedData));
       return updatedData;
     });
   };
 
-  const handleAbnormalityTypeChange = (e) => {
-    const { name, value } = e.target;
+  const handleAbnormalityTypeChange = (e, type, eye) => {
+    const { value } = e.target;
+    const selectedOption = type === 'ocular' ? 
+      ocularMovementOptions.find(opt => opt.name === value) :
+      pupilReactionOptions.find(opt => opt.name === value);
+
     setFormData((prevData) => {
       const updatedData = { ...prevData };
       
-      // Update the type selection
-      updatedData[name] = value;
-      
-      // Determine which field to update based on the name
-      let abnormalityField = '';
-      if (name.includes('Ocular')) {
-        abnormalityField = `o${name.slice(0, 2)}ocularmovementAbnormal`;
-      } else if (name.includes('Pupil')) {
-        abnormalityField = `o${name.slice(0, 2).toLowerCase()}PupilReactionAbnormal`;
+      if (type === 'ocular') {
+        updatedData[`o${eye}ocularmovementAbnormal`] = value === 'Other' ? '' : value;
+        updatedData[`${eye.toLowerCase()}OcularMovementType`] = value;
+        updatedData[`extraOcularMovementAbnormalDTO${eye}`] = selectedOption ? 
+          [{ abnormalTypeId: selectedOption.id }] : [];
+      } else {
+        updatedData[`o${eye.toLowerCase()}PupilReactionAbnormal`] = value === 'Other' ? '' : value;
+        updatedData[`${eye.toLowerCase()}PupilReactionType`] = value;
+        updatedData[`pupilLightReactionAbnormalDTO${eye}`] = selectedOption ? 
+          [{ abnormalTypeId: selectedOption.id }] : [];
       }
-      
-      // Update the abnormality value
-      updatedData[abnormalityField] = value === 'Other' ? null : value;
       
       dispatch(saveSectionGData(updatedData));
       return updatedData;
@@ -179,20 +190,39 @@ const SectionG = ({
 
   const handleNextPage = async() => {
     try {
-      dispatch(saveSectionGData(formData)); 
       const payload = {
-        ...sectionBData,
-        ...sectionCData,
-        ...sectionDData,
-        ...sectionEData,
-        ...sectionFData,
-        ...formData,
-        patientInfoId, 
-        id 
+        registryInfoId: formData.registryInfoId,
+        isProptosisOD: formData.isProptosisOD,
+        isProptosisOS: formData.isProptosisOS,
+        isODocularmovementNormal: formData.isODocularmovementNormal,
+        isODocularmovementAbnormal: formData.isODocularmovementAbnormal,
+        oDocularmovementAbnormal: formData.oDocularmovementAbnormal,
+        isOSocularmovementNormal: formData.isOSocularmovementNormal,
+        isOSocularmovementAbnormal: formData.isOSocularmovementAbnormal,
+        oSocularmovementAbnormal: formData.oSocularmovementAbnormal,
+        isODPupilReactionNormal: formData.isODPupilReactionNormal,
+        isODPupilReactionAbnormal: formData.isODPupilReactionAbnormal,
+        odPupilReactionAbnormal: formData.odPupilReactionAbnormal,
+        isOSPupilReactionNormal: formData.isOSPupilReactionNormal,
+        isOSPupilReactionAbnormal: formData.isOSPupilReactionAbnormal,
+        osPupilReactionAbnormal: formData.osPupilReactionAbnormal,
+        extraOcularMovementAbnormalDTOOD: formData.extraOcularMovementAbnormalDTOOD,
+        extraOcularMovementAbnormalDTOOS: formData.extraOcularMovementAbnormalDTOOS,
+        pupilLightReactionAbnormalDTOOD: formData.pupilLightReactionAbnormalDTOOD,
+        pupilLightReactionAbnormalDTOOS: formData.pupilLightReactionAbnormalDTOOS
       };
       
-      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
+      // Make the API call
+      await dispatch(addExternalExamination(payload)).unwrap();
+      
+      // Check if form is complete and update status
+      if (updateFormStatus) {  // Changed from props.updateFormStatus
+        const isComplete = isFormComplete(formData);
+        updateFormStatus('External-Examination', true);
+      }
 
+
+      // Navigate to next page
       const nextAlphabet = 'Slit-Lamp-Examination';
       setSelectedAlphabet(nextAlphabet);
       localStorage.setItem('selectedAlphabet', nextAlphabet);
@@ -217,6 +247,8 @@ const SectionG = ({
       boxShadow: 3,
       borderRadius: 2,
       backgroundColor: "#fff",
+      overflowX: "hidden",  // Changed from overflow-x
+      WebkitOverflowScrolling: "touch",  // Changed from -webkit-overflow-scrolling
     }}>
       <Typography variant="h6" marginBottom={2}>
         Section G: External Examination
@@ -236,7 +268,7 @@ const SectionG = ({
               <Typography variant="body2">{eye.label}</Typography>
               <RadioGroup
                 row
-                value={formData[`isProptosis${eye.key}`].toString()}
+                value={String(formData[`isProptosis${eye.key}`])}
                 onChange={handleProptosisChange}
                 name={`isProptosis${eye.key}`}
               >
@@ -287,13 +319,14 @@ const SectionG = ({
                   <Select
                     fullWidth
                     value={formData[`${eye.key.toLowerCase()}OcularMovementType`] || ""}
-                    onChange={handleAbnormalityTypeChange}
-                    name={`${eye.key.toLowerCase()}OcularMovementType`}
+                    onChange={(e) => handleAbnormalityTypeChange(e, 'ocular', eye.key)}
                     sx={{ mt: 1, mb: 1 }}
                   >
                     <MenuItem value="">Select Abnormality</MenuItem>
                     {ocularMovementOptions.map((option) => (
-                      <MenuItem key={option} value={option}>{option}</MenuItem>
+                      <MenuItem key={option.id} value={option.name}>
+                        {option.name}
+                      </MenuItem>
                     ))}
                   </Select>
                   {formData[`${eye.key.toLowerCase()}OcularMovementType`] === "Other" && (
@@ -341,16 +374,17 @@ const SectionG = ({
               </RadioGroup>
               {formData[`is${eye.key}PupilReactionAbnormal`] && (
                 <>
-                  <Select
+                <Select
                     fullWidth
                     value={formData[`${eye.key.toLowerCase()}PupilReactionType`] || ""}
-                    onChange={handleAbnormalityTypeChange}
-                    name={`${eye.key.toLowerCase()}PupilReactionType`}
+                    onChange={(e) => handleAbnormalityTypeChange(e, 'pupil', eye.key)}
                     sx={{ mt: 1, mb: 1 }}
                   >
                     <MenuItem value="">Select Abnormality</MenuItem>
                     {pupilReactionOptions.map((option) => (
-                      <MenuItem key={option} value={option}>{option}</MenuItem>
+                      <MenuItem key={option.id} value={option.name}>
+                        {option.name}
+                      </MenuItem>
                     ))}
                   </Select>
                   {formData[`${eye.key.toLowerCase()}PupilReactionType`] === "Other" && (

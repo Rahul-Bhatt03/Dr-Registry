@@ -13,14 +13,18 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { saveSectionEData } from "../features/sectionSlice.js";
-import { updateDrRegistryInfo } from '../features/updateFormSlice.js'; // Import the update action
-
+import { updateDrRegistryInfo } from "../features/updateFormSlice.js";
+import { addInvestigation } from "../features/investigationSlice.js";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SectionE = ({
   selectedAlphabet,
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus,
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -31,12 +35,36 @@ const SectionE = ({
   const sectionBData = useSelector((state) => state.form.sectionB);
   const sectionCData = useSelector((state) => state.form.sectionC);
 
-   // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
-   const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
-   const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
+  // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
+  const patientInfoId = parseInt(localStorage.getItem("currentpatientInfoId"));
+  const id = parseInt(
+    sectionBData.DrRegistryId || localStorage.getItem("DrRegistryId")
+  );
 
   // State to hold form data locally
   const [formData, setFormData] = useState(sectionEData || {});
+  const [formSubmitted, setFormSubmitted] = useState(false);
+
+  // Immediate BMI calculation
+  const calculateBMI = (height, weight) => {
+    if (height && weight) {
+      const heightInMeters = height / 100;
+      const bmi = weight / (heightInMeters * heightInMeters);
+      return parseFloat(bmi.toFixed(2));
+    }
+    return null;
+  };
+
+  // Immediate BP Status calculation
+  const calculateBPStatus = (systolic, diastolic) => {
+    if (systolic && diastolic) {
+      if (systolic >= 160 || diastolic >= 100) return "4";
+      if (systolic >= 140 || diastolic >= 90) return "3";
+      if (systolic >= 120 || diastolic >= 80) return "2";
+      return "1";
+    }
+    return null;
+  };
 
   // Update formData when sectionEData from the store changes
   useEffect(() => {
@@ -47,8 +75,9 @@ const SectionE = ({
 
   // Handle next and previous page navigation
   const handleNextPage = async () => {
+    setFormSubmitted(true);
     try {
-      dispatch(saveSectionEData(formData)); // Save Section E data
+      dispatch(saveSectionEData(formData));
       const payload = {
         ...sectionBData,
         ...sectionCData,
@@ -57,20 +86,30 @@ const SectionE = ({
         patientInfoId, 
         id 
       };
-      console.log("Section E Payload:", payload);
 
-      // Dispatch the update action
-      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
+      await dispatch(addInvestigation({ registryData: payload })).unwrap();
+      
+      // Update form status on success
+      updateFormStatus('Investigation', true);
+      
+      toast.success("Investigation data added successfully!", {
+        position: "top-right",
+        autoClose: 3000,
+      });
 
-         // Update the selected alphabet and navigate
-    const nextAlphabet = 'Ocular-History';
-    setSelectedAlphabet(nextAlphabet);
-    localStorage.setItem('selectedAlphabet', nextAlphabet);
-    navigate(`/section-${nextAlphabet}`);
-   
-      handleNextClick(); // Proceed to the next section
+      const nextAlphabet = 'Ocular-History';
+      setSelectedAlphabet(nextAlphabet);
+      localStorage.setItem('selectedAlphabet', nextAlphabet);
+      navigate(`/section-${nextAlphabet}`);
+      handleNextClick();
     } catch (error) {
       console.error("Error updating registry info:", error);
+      toast.error("Failed to add investigation data. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      // Update form status on failure
+      updateFormStatus('Investigation', false);
     }
   };
 
@@ -79,20 +118,39 @@ const SectionE = ({
     handlePreviousClick(); // Call the function provided by the Layout to navigate
   };
 
-  const handleAlphabetClick = (alphabet) => {
-    setSelectedAlphabet(alphabet);
-    localStorage.setItem("selectedAlphabet", alphabet);
-    navigate(`/section-${alphabet.toUpperCase()}`);
-  };
-
   const isFieldString = (fieldName) => fieldName === "otherTest";
 
-  // Handler to update the Redux store
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    const numValue = isFieldString(name) ? value : value !== "" ? +value : null;
+
     setFormData((prevData) => {
-      const updatedData = { ...prevData, [name]:isFieldString(name)?value: value!==''?+value:null };
-      dispatch(saveSectionEData(updatedData)); // Save data to Redux on every change
+      const updatedData = { ...prevData, [name]: numValue };
+
+      // Immediate BMI calculation
+      if (name === "height" || name === "weight") {
+        const height = name === "height" ? numValue : prevData.height;
+        const weight = name === "weight" ? numValue : prevData.weight;
+        updatedData.bmi = calculateBMI(height, weight);
+      }
+
+      // Immediate BP Status calculation
+      if (
+        name === "bloadPressureSyestlolic" ||
+        name === "bloadPressureDiastlolic"
+      ) {
+        const systolic =
+          name === "bloadPressureSyestlolic"
+            ? numValue
+            : prevData.bloadPressureSyestlolic;
+        const diastolic =
+          name === "bloadPressureDiastlolic"
+            ? numValue
+            : prevData.bloadPressureDiastlolic;
+        updatedData.bpStatus = calculateBPStatus(systolic, diastolic);
+      }
+
+      dispatch(saveSectionEData(updatedData));
       return updatedData;
     });
   };
@@ -131,18 +189,16 @@ const SectionE = ({
         Section E: Investigation
       </Typography>
       <Grid container spacing={2}>
-    <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              {...commonTextFieldProps}
-              label="Date of Examination"
-              type="date"
-              InputLabelProps={{ shrink: true }}
-              value={formData.dateofExamination}
-              onChange={(e) =>
-                handleChange("dateofExamination", e.target.value)
-              }
-            />
-          </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <TextField
+            {...commonTextFieldProps}
+            label="Date of Examination"
+            type="date"
+            InputLabelProps={{ shrink: true }}
+            value={formData.dateofExamination}
+            onChange={(e) => handleChange("dateofExamination", e.target.value)}
+          />
+        </Grid>
 
         {/* Height and Weight */}
         <Grid item xs={6}>
@@ -171,11 +227,35 @@ const SectionE = ({
         <Grid item xs={6}>
           <TextField
             fullWidth
-            label="bsa"
+            label="BMI"
             type="number"
             variant="outlined"
-            name="bsa"
-            value={formData.bsa || null}
+            name="bmi"
+            value={formData.bmi || null}
+            InputProps={{ readOnly: true }}
+          />
+        </Grid>
+
+        {/* Blood Pressure Readings - Moved before BP Status */}
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            label="Blood Pressure (Systolic)"
+            type="number"
+            variant="outlined"
+            name="bloadPressureSyestlolic"
+            value={formData.bloadPressureSyestlolic || ""}
+            onChange={handleInputChange}
+          />
+        </Grid>
+        <Grid item xs={6}>
+          <TextField
+            fullWidth
+            label="Blood Pressure (Diastolic)"
+            type="number"
+            variant="outlined"
+            name="bloadPressureDiastlolic"
+            value={formData.bloadPressureDiastlolic || ""}
             onChange={handleInputChange}
           />
         </Grid>
@@ -187,55 +267,31 @@ const SectionE = ({
             <RadioGroup
               row
               name="bpStatus"
-              value={formData.bpStatus || null}
+              value={formData.bpStatus || ""}
               onChange={handleInputChange}
             >
               <FormControlLabel
                 value="1"
                 control={<Radio />}
-                label="Normal (>=120/80)"
+                label="Normal (<120/80)"
               />
               <FormControlLabel
                 value="2"
                 control={<Radio />}
-                label="Pre-Hypertension (120-139)"
+                label="Pre-Hypertension (120-139/80-89)"
               />
               <FormControlLabel
                 value="3"
                 control={<Radio />}
-                label="Stage I (140-159)"
+                label="Stage I (140-159/90-99)"
               />
               <FormControlLabel
                 value="4"
                 control={<Radio />}
-                label="Stage II (>160)"
+                label="Stage II (≥160/≥100)"
               />
             </RadioGroup>
           </FormControl>
-        </Grid>
-
-        {/* Blood Pressure Readings */}
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            label="Blood Pressure (Systolic)"
-            type="number"
-            variant="outlined"
-            name="bloadPressureSyestlolic"
-            value={formData.bloadPressureSyestlolic || null}
-            onChange={handleInputChange}
-          />
-        </Grid>
-        <Grid item xs={6}>
-          <TextField
-            fullWidth
-            label="Blood Pressure (Diastolic)"
-            type="number"
-            variant="outlined"
-            name="bloadPressureDiastlolic"
-            value={formData.bloadPressureDiastlolic || null}
-            onChange={handleInputChange}
-          />
         </Grid>
 
         {/* Blood Sugar */}
@@ -435,7 +491,7 @@ const SectionE = ({
           Previous
         </Button>
         <Button variant="contained" color="primary" onClick={handleNextPage}>
-          Next
+          Submit
         </Button>
       </Box>
     </Box>

@@ -1,126 +1,166 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Typography,
   Grid,
-  TextField,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
   FormControl,
   FormLabel,
   Button,
-  Select,
-  MenuItem,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
   CircularProgress,
-} from '@mui/material';
-import { useNavigate } from 'react-router-dom';
-import { useSelector, useDispatch } from 'react-redux';
-import { saveSectionDData } from '../features/sectionSlice.js'; // Adjust path as needed
-import { fetchSystemicComplications } from '../features/systemicComplicationsSlice.js';
-import { updateDrRegistryInfo } from '../features/updateFormSlice.js'; // Import the update action
+} from "@mui/material";
+import { useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { saveSectionDData } from "../features/sectionSlice.js";
+import {
+  fetchSystemicComplications,
+  addSystemicComplication,
+} from "../features/systemicComplicationsSlice.js";
+import { toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const SectionD = ({
   selectedAlphabet,
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus,
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [formErrors, setFormErrors] = useState({});
 
-  // Retrieve systemic complications data and loading state from Redux store
+  // Redux selectors
   const { data: complicationsList, loading } = useSelector(
     (state) => state.systemicComplications
   );
-
-  // Retrieve section D data from Redux store
   const sectionDData = useSelector((state) => state.form.sectionD);
   const sectionBData = useSelector((state) => state.form.sectionB);
-  const sectionCData = useSelector((state) => state.form.sectionC);
 
-  // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
-  const patientInfoId = parseInt(localStorage.getItem('currentpatientInfoId'));
-  const id = parseInt(sectionBData.DrRegistryId || localStorage.getItem('DrRegistryId'));
+  // Get IDs from localStorage
+  const patientInfoId = parseInt(localStorage.getItem("currentpatientInfoId"));
+  const registryInfoId = parseInt(
+    sectionBData.DrRegistryId || localStorage.getItem("DrRegistryId")
+  );
 
-  // Local state for managing the form data
+  // Form state
   const [formData, setFormData] = useState({
-    systemicOtherComplicationsInfoId: null,
+    systemicComplicationDetailDTOs: [],
+    isSubmitted: false, // Add this to track submission status
   });
+
+  // Initialize form data from Redux store
+  useEffect(() => {
+    if (sectionDData?.systemicComplicationDetailDTOs) {
+      setFormData(prevData => ({
+        ...prevData,
+        systemicComplicationDetailDTOs: sectionDData.systemicComplicationDetailDTOs,
+        isSubmitted: sectionDData.isSubmitted || false,
+      }));
+    }
+  }, [sectionDData]);
 
   // Fetch complications on mount
   useEffect(() => {
     dispatch(fetchSystemicComplications());
   }, [dispatch]);
 
-  // Populate local state with data from Redux store
-  useEffect(() => {
-    if (sectionDData) {
-      setFormData(sectionDData);
+  // Form validation
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.systemicComplicationDetailDTOs?.length) {
+      errors.systemicComplicationDetailDTOs = "Please select at least one complication";
     }
-  }, [sectionDData]);
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
-  // Handle form field changes and update Redux store
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  // Effect to check form completion status
+  useEffect(() => {
+    const isFormComplete = validateForm() && formData.isSubmitted;
+    if (formStatus["Systemic-Complications"] !== isFormComplete) {
+      updateFormStatus("Systemic-Complications", isFormComplete);
+    }
+  }, [formData, formStatus, updateFormStatus]);
+
+  // Handle checkbox changes
+  const handleComplicationChange = (complicationId) => {
     setFormData((prevData) => {
-      const updatedData = { ...prevData, [name]: value };
-      dispatch(saveSectionDData(updatedData)); // Save data to Redux on every change
+      const currentDTOs = prevData.systemicComplicationDetailDTOs || [];
+      const existingIndex = currentDTOs.findIndex(
+        (dto) => dto.systemicOtherComplicationsInfoId === complicationId
+      );
+
+      let newDTOs;
+      if (existingIndex >= 0) {
+        newDTOs = currentDTOs.filter((_, index) => index !== existingIndex);
+      } else {
+        newDTOs = [
+          ...currentDTOs,
+          { systemicOtherComplicationsInfoId: complicationId },
+        ];
+      }
+
+      const updatedData = {
+        ...prevData,
+        systemicComplicationDetailDTOs: newDTOs,
+      };
+
+      // Update Redux store
+      dispatch(saveSectionDData(updatedData));
       return updatedData;
     });
   };
 
-  const handleComplicationChange = (event) => {
-    const value = event.target.value;
-    setFormData({
-      ...formData,
-      complications: value,
-      otherComplications: value === 'other' ? formData.otherComplications : '',
-    });
-    dispatch(saveSectionDData({
-      ...formData,
-      complications: value,
-      otherComplications: value === 'other' ? formData.otherComplications : '',
-    }));
-  };
-
-
-
-  // Updated handleNextPage to call the update endpoint before navigation
+  // Handle next page navigation
   const handleNextPage = async () => {
     try {
-      // Combine data from sectionB, sectionC, formData, and necessary identifiers
-      const payload = {
-        ...sectionBData,
-        ...sectionCData,
-        ...formData,
-        patientInfoId,
-       id,
-      };
-console.log("section D payloads",payload)
-      // Dispatch the update action and wait for the result
-      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
+      if (!validateForm()) {
+        toast.error("Please select at least one complication", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
 
-      // Update the selected alphabet and navigate
-      const nextAlphabet = 'Investigation';
-      setSelectedAlphabet(nextAlphabet);
-      localStorage.setItem('selectedAlphabet', nextAlphabet);
-      navigate(`/section-${nextAlphabet}`);
+      const payload = {
+        id: 0,
+        registryInfoId,
+        patientInfoId,
+        systemicComplicationDetailDTOs: formData.systemicComplicationDetailDTOs,
+      };
+
+      await dispatch(addSystemicComplication(payload)).unwrap();
+      
+      // Update form status after successful submission
+      const updatedFormData = {
+        ...formData,
+        isSubmitted: true,
+      };
+      
+      setFormData(updatedFormData);
+      dispatch(saveSectionDData(updatedFormData));
+      
+      // Ensure form status is updated before navigation
+      updateFormStatus("systemic-complications", true);
+      
+      // Navigate to next section
+      handleNextClick();
     } catch (error) {
-      console.error("Error updating data:", error);
-      // Optionally handle error (e.g., show a notification)
+      console.error("Error adding systemic complications:", error);
+      toast.error("Failed to save complications. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
     }
   };
 
   const handlePreviousPage = () => {
-    dispatch(saveSectionDData(formData)); // Ensure data is saved before navigation
-    handlePreviousClick(); // Call the function provided by the Layout to navigate
-  };
-
-  const handleAlphabetClick = (alphabet) => {
-    setSelectedAlphabet(alphabet);
-    localStorage.setItem('selectedAlphabet', alphabet);
-    navigate(`/section-${alphabet.toUpperCase()}`);
+    dispatch(saveSectionDData(formData));
+    handlePreviousClick();
   };
 
   return (
@@ -128,10 +168,10 @@ console.log("section D payloads",payload)
       sx={{
         padding: 4,
         maxWidth: 800,
-        margin: 'auto',
+        margin: "auto",
         boxShadow: 3,
         borderRadius: 2,
-        backgroundColor: '#fff',
+        backgroundColor: "#fff",
       }}
     >
       <Typography variant="h6" marginBottom={2}>
@@ -139,54 +179,62 @@ console.log("section D payloads",payload)
       </Typography>
 
       <Grid container spacing={3}>
-        {/* Dropdown for systemic complications */}
         <Grid item xs={12}>
-          <FormControl fullWidth>
-            <FormLabel>Systemic Other Complications</FormLabel>
+          <FormControl 
+            component="fieldset" 
+            fullWidth 
+            error={!!formErrors.systemicComplicationDetailDTOs}
+          >
+            <FormLabel component="legend">
+              Select Systemic Complications
+            </FormLabel>
             {loading ? (
               <CircularProgress />
             ) : (
-              <Select
-                name="systemicOtherComplicationsInfoId"
-                value={formData.systemicOtherComplicationsInfoId}
-                onChange={handleInputChange}
-                displayEmpty
-              >
-                <MenuItem value="" disabled>
-                  Select a complication
-                </MenuItem>
+              <FormGroup>
                 {complicationsList.map((complication) => (
-                  <MenuItem key={complication.id} value={complication.id}>
-                    {complication.name}
-                  </MenuItem>
+                  <FormControlLabel
+                    key={complication.id}
+                    control={
+                      <Checkbox
+                        checked={formData.systemicComplicationDetailDTOs.some(
+                          (dto) =>
+                            dto.systemicOtherComplicationsInfoId === complication.id
+                        )}
+                        onChange={() => handleComplicationChange(complication.id)}
+                      />
+                    }
+                    label={complication.name}
+                  />
                 ))}
-              </Select>
+              </FormGroup>
+            )}
+            {formErrors.systemicComplicationDetailDTOs && (
+              <Typography color="error" variant="caption">
+                {formErrors.systemicComplicationDetailDTOs}
+              </Typography>
             )}
           </FormControl>
         </Grid>
 
-        {/* Previous Page Button */}
         <Grid item xs={12}>
-          <Button
-            fullWidth
-            variant="contained"
-            color="secondary"
-            onClick={handlePreviousPage}
-          >
-            Previous Page
-          </Button>
-        </Grid>
-
-        {/* Next Page Button */}
-        <Grid item xs={12}>
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            onClick={handleNextPage}
-          >
-            Next Page
-          </Button>
+          <Box display="flex" justifyContent="space-between" marginTop={3}>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={handlePreviousPage}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleNextPage}
+              disabled={loading}
+            >
+              Submit
+            </Button>
+          </Box>
         </Grid>
       </Grid>
     </Box>

@@ -8,9 +8,7 @@ import {
   FormControlLabel,
   Radio,
   FormControl,
-  Select,
-  MenuItem,
-  InputLabel,
+  Checkbox,
   Button,
   TextField,
 } from "@mui/material";
@@ -20,19 +18,25 @@ import {
   fetchOpticNerveAbnormalTypes,
   fetchRetinaAbnormalTypes,
 } from "../features/ocularAbnormalTypes.js";
-import { updateDrRegistryInfo } from "../features/updateFormSlice.js"; // Import the update action
+import { updateDrRegistryInfo } from "../features/updateFormSlice.js";
+import { addFundusExamination } from "../features/fundusExaminationSlice.js";
 
 const normalizeFormData = (data) => {
   const defaultData = {
+    registryInfoId: 0,
     odOpticNerveCondition: null,
     osOpticNerveCondition: null,
-    odOpticNerveAbnormalTypeId: null,
-    osOpticNerveAbnormalTypeId: null,
+    otherODOpticNerveAbnormalType: "",
+    otherOSOpticNerveAbnormalType: "",
     odRetinaCondition: null,
     osRetinaCondition: null,
-    odRetinaAbnormalTypeId: null,
-    osRetinaAbnormalTypeId: null,
-    otherFundusExamination: null,
+    otherODRetinaAbnormalType: "",
+    otherOSRetinaAbnormalType: "",
+    otherFundusExamination: "",
+    opticNerveAbnormalOD: [],
+    opticNerveAbnormalOS: [],
+    retinaAbnormalOD: [],
+    retinaAbnormalOS: []
   };
 
   return { ...defaultData, ...data };
@@ -43,31 +47,19 @@ const SectionI = ({
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus
 }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // Retrieve section I data and abnormal types from Redux store
   const sectionIData = useSelector((state) => state.form.sectionI);
-  const sectionHData = useSelector((state) => state.form.sectionH);
-  const sectionGData = useSelector((state) => state.form.sectionG);
-  const sectionFData = useSelector((state) => state.form.sectionF);
-  const sectionEData = useSelector((state) => state.form.sectionE);
-  const sectionDData = useSelector((state) => state.form.sectionD);
-  const sectionBData = useSelector((state) => state.form.sectionB);
-  const sectionCData = useSelector((state) => state.form.sectionC);
+  const registryInfoId = parseInt(localStorage.getItem("DrRegistryId")) || 0;
 
-  // Retrieve patientInfoId and DrRegistryId from Redux store or localStorage
-  const patientInfoId = parseInt(localStorage.getItem("currentpatientInfoId"));
-  const id = parseInt(
-    sectionBData.DrRegistryId || localStorage.getItem("DrRegistryId")
-  );
-
-  const { opticNerveAbnormalTypes, retinaAbnormalTypes, status } = useSelector(
+  const { opticNerveAbnormalTypes, retinaAbnormalTypes } = useSelector(
     (state) => state.abnormalTypes
   );
 
-  // Initialize state with normalized Redux data or default empty structure
   const [formData, setFormData] = useState(() =>
     normalizeFormData(sectionIData || {})
   );
@@ -83,78 +75,80 @@ const SectionI = ({
     dispatch(fetchRetinaAbnormalTypes());
   }, [dispatch]);
 
-  const handleStatusChange = (eye, value, section) => {
-    const condition = value === "normal" ? 1 : 2;
-    const abnormalTypeId = null; // Default value for abnormal type
+  const isFormComplete = (data) => {
+    const opticNerveComplete = 
+      data.odOpticNerveCondition && data.osOpticNerveCondition &&
+      (data.odOpticNerveCondition === 1 || data.opticNerveAbnormalOD.length > 0) &&
+      (data.osOpticNerveCondition === 1 || data.opticNerveAbnormalOS.length > 0);
 
-    setFormData((prev) =>
-      normalizeFormData({
-        ...prev,
-        [`${eye}${section}Condition`]: condition,
-        [`${eye}${section}AbnormalTypeId`]: abnormalTypeId,
-        [`${eye}OtherFundusExamination`]: null, // Reset "Other" field if condition changes
-      })
-    );
+    const retinaComplete = 
+      data.odRetinaCondition && data.osRetinaCondition &&
+      (data.odRetinaCondition === 1 || data.retinaAbnormalOD.length > 0) &&
+      (data.osRetinaCondition === 1 || data.retinaAbnormalOS.length > 0);
 
-    if (condition === 2) {
-      section === "OpticNerve"
-        ? dispatch(fetchOpticNerveAbnormalTypes())
-        : dispatch(fetchRetinaAbnormalTypes());
-    }
+    return opticNerveComplete && retinaComplete;
   };
 
-  const handleAbnormalTypeChange = (eye, value, section) => {
-    setFormData((prev) =>
-      normalizeFormData({
-        ...prev,
-        [`${eye}${section}AbnormalTypeId`]: value,
-      })
-    );
+  const handleStatusChange = (eye, value, section) => {
+    const condition = value === "normal" ? 1 : 2;
+    const updatedData = {
+      ...formData,
+      [`${eye}${section}Condition`]: condition,
+    };
+
+    // Reset abnormal types when changing to normal
+    if (condition === 1) {
+      if (section === "OpticNerve") {
+        updatedData[`opticNerveAbnormal${eye.toUpperCase()}`] = [];
+        updatedData[`otherOD${section}AbnormalType`] = "";
+      } else {
+        updatedData[`retinaAbnormal${eye.toUpperCase()}`] = [];
+        updatedData[`otherOD${section}AbnormalType`] = "";
+      }
+    }
+
+    setFormData(updatedData);
+    dispatch(saveSectionIData(updatedData));
+  };
+
+  const handleAbnormalTypeChange = (eye, abnormalTypeId, section, isChecked) => {
+    const updatedData = { ...formData };
+    const arrayKey = section === "OpticNerve" 
+      ? `opticNerveAbnormal${eye.toUpperCase()}` 
+      : `retinaAbnormal${eye.toUpperCase()}`;
+    
+    if (isChecked) {
+      // Add the abnormal type if it's checked
+      updatedData[arrayKey] = [
+        ...updatedData[arrayKey],
+        { abnormalTypeId }
+      ];
+    } else {
+      // Remove the abnormal type if it's unchecked
+      updatedData[arrayKey] = updatedData[arrayKey].filter(
+        item => item.abnormalTypeId !== abnormalTypeId
+      );
+    }
+
+    setFormData(updatedData);
+    dispatch(saveSectionIData(updatedData));
   };
 
   const handleOtherChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      otherFundusExamination: e.target.value,
-    }));
+    const updatedData = {
+      ...formData,
+      otherFundusExamination: e.target.value
+    };
+    setFormData(updatedData);
+    dispatch(saveSectionIData(updatedData));
   };
 
-  const handleNextPage = async () => {
-    try {
-      const normalizedData = normalizeFormData(formData);
-      dispatch(saveSectionIData(normalizedData));
-  
-      const payload = {
-        ...sectionBData,
-        ...sectionCData,
-        ...sectionDData,
-        ...sectionEData,
-        ...sectionFData,
-        ...sectionGData,
-        ...sectionHData,
-        ...formData,
-        patientInfoId,
-        id,
-      };
-      console.log("Section I Payload:", payload);
-  
-      await dispatch(updateDrRegistryInfo({ registryData: payload })).unwrap();
-  
-      const nextAlphabet = "DIABETIC-RETINOPATHY";
-      setSelectedAlphabet(nextAlphabet);
-      localStorage.setItem("selectedAlphabet", nextAlphabet);
-      navigate(`/section-${nextAlphabet}`);
-    } catch (error) {
-      console.error("Error updating registry info:", error);
-      alert("Failed to update registry info. Please try again.");
-    }
-  };
-  
-
-  const handlePreviousPage = () => {
-    const normalizedData = normalizeFormData(formData);
-    dispatch(saveSectionIData(normalizedData)); // Ensure normalized data is saved
-    handlePreviousClick();
+  const isAbnormalTypeSelected = (eye, abnormalTypeId, section) => {
+    const arrayKey = section === "OpticNerve" 
+      ? `opticNerveAbnormal${eye.toUpperCase()}` 
+      : `retinaAbnormal${eye.toUpperCase()}`;
+    
+    return formData[arrayKey].some(item => item.abnormalTypeId === abnormalTypeId);
   };
 
   const renderEyeSection = (title, section) => (
@@ -166,7 +160,7 @@ const SectionI = ({
         {["od", "os"].map((eye) => (
           <Grid item xs={12} sm={6} key={eye}>
             <Typography variant="body2" marginBottom={1}>
-              {eye === "OD" ? "Right Eye (OD)" : "Left Eye (OS)"}
+              {eye === "od" ? "Right Eye (OD)" : "Left Eye (OS)"}
             </Typography>
             <FormControl component="fieldset">
               <RadioGroup
@@ -195,30 +189,50 @@ const SectionI = ({
             </FormControl>
 
             {formData[`${eye}${section}Condition`] === 2 && (
-              <FormControl fullWidth>
-                <InputLabel>Abnormal Type</InputLabel>
-                <Select
-                  value={formData[`${eye}${section}AbnormalTypeId`]}
-                  onChange={(e) =>
-                    handleAbnormalTypeChange(eye, e.target.value, section)
-                  }
-                  label="Abnormal Type"
-                >
-                  {section === "OpticNerve" &&
-                    opticNerveAbnormalTypes.length > 0 &&
-                    opticNerveAbnormalTypes.map((type) => (
-                      <MenuItem key={type.id} value={type.id}>
-                        {type.name}
-                      </MenuItem>
-                    ))}
-                  {section === "Retina" &&
-                    retinaAbnormalTypes.length > 0 &&
-                    retinaAbnormalTypes.map((type) => (
-                      <MenuItem key={type.id} value={type.id}>
-                        {type.name}
-                      </MenuItem>
-                    ))}
-                </Select>
+              <FormControl component="fieldset" sx={{ ml: 2 }}>
+                <Typography variant="body2" marginBottom={1}>
+                  Select Abnormal Types:
+                </Typography>
+                {section === "OpticNerve" &&
+                  opticNerveAbnormalTypes.map((type) => (
+                    <FormControlLabel
+                      key={type.id}
+                      control={
+                        <Checkbox
+                          checked={isAbnormalTypeSelected(eye, type.id, section)}
+                          onChange={(e) =>
+                            handleAbnormalTypeChange(
+                              eye,
+                              type.id,
+                              section,
+                              e.target.checked
+                            )
+                          }
+                        />
+                      }
+                      label={type.name}
+                    />
+                  ))}
+                {section === "Retina" &&
+                  retinaAbnormalTypes.map((type) => (
+                    <FormControlLabel
+                      key={type.id}
+                      control={
+                        <Checkbox
+                          checked={isAbnormalTypeSelected(eye, type.id, section)}
+                          onChange={(e) =>
+                            handleAbnormalTypeChange(
+                              eye,
+                              type.id,
+                              section,
+                              e.target.checked
+                            )
+                          }
+                        />
+                      }
+                      label={type.name}
+                    />
+                  ))}
               </FormControl>
             )}
           </Grid>
@@ -226,6 +240,39 @@ const SectionI = ({
       </Grid>
     </Grid>
   );
+
+  const handleNextPage = async () => {
+    try {
+      const normalizedData = {
+        ...normalizeFormData(formData),
+        registryInfoId
+      };
+
+      const isComplete = isFormComplete(normalizedData);
+      if (updateFormStatus) {
+        updateFormStatus('Fundus-Examination', isComplete);
+      }
+
+      await dispatch(addFundusExamination(normalizedData)).unwrap();
+      dispatch(saveSectionIData(normalizedData));
+
+      const nextAlphabet = "DIABETIC-RETINOPATHY";
+      setSelectedAlphabet(nextAlphabet);
+      localStorage.setItem("selectedAlphabet", nextAlphabet);
+      navigate(`/section-${nextAlphabet}`);
+      
+      handleNextClick();
+    } catch (error) {
+      console.error("Error updating fundus examination:", error);
+      alert("Failed to update fundus examination. Please try again.");
+    }
+  };
+
+  const handlePreviousPage = () => {
+    const normalizedData = normalizeFormData(formData);
+    dispatch(saveSectionIData(normalizedData));
+    handlePreviousClick();
+  };
 
   return (
     <Box
@@ -246,9 +293,9 @@ const SectionI = ({
         {renderEyeSection("Optic Nerve", "OpticNerve")}
         {renderEyeSection("Retina", "Retina")}
 
-        <Grid item xs={120}>
+        <Grid item xs={12}>
           <TextField
-            label="other fundus examination"
+            label="Other fundus examination"
             fullWidth
             value={formData.otherFundusExamination}
             onChange={handleOtherChange}
@@ -258,7 +305,6 @@ const SectionI = ({
           />
         </Grid>
 
-        {/* Navigation Buttons */}
         <Grid item xs={12}>
           <Button
             variant="contained"
@@ -273,7 +319,7 @@ const SectionI = ({
             sx={{ marginLeft: "20px" }}
             onClick={handleNextPage}
           >
-            Next
+            Submit
           </Button>
         </Grid>
       </Grid>

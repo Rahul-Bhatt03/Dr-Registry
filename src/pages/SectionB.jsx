@@ -20,6 +20,10 @@ import { useDispatch, useSelector } from "react-redux";
 import { saveSectionBData } from "../features/sectionSlice.js";
 import { submitFormData } from "../features/formSubmissionSlice";
 import { updateDrRegistryInfo } from "../features/updateFormSlice.js";
+import { addMedicalHistory } from '../features/medicalHistorySlice'; 
+import { toast } from "react-toastify";
+import 'react-toastify/dist/ReactToastify.css'
+
 
 const DURATION_TYPES = [
   { id: 1, label: "Days" },
@@ -51,48 +55,83 @@ const SectionB = ({
   setSelectedAlphabet,
   handleNextClick,
   handlePreviousClick,
+  updateFormStatus,
+  formStatus
 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const sectionBData = useSelector((state) => state.form.sectionB);
   const patientInfoId = parseInt(localStorage.getItem("currentpatientInfoId"));
+  const [formErrors,setFormErrors]=useState({})
 
   const [formData, setFormData] = useState({
     diabetesMellitisType: null,
-    otherDiabetesMellitisType: "",
+    otherDiabetesMellitisType: null,
     diabetesDetectedDate: new Date().toISOString(),
     durationofDiabetes: null,
     diabetesDurationType: 1,
     treatmentType: null,
     selectedTreatments: [],
     isAwarenessOnDiabetesRetinopathy: false,
-    sourceofAwareness: "",
+    sourceofAwareness: null,
 
     isHypertension: false,
     hypertensionDuration: null,
     hypertensionDurationType: 1,
     isHypertensionTreatment: false,
     hypertensionMedicineId: null,
-    hypertensionMedicationName: "",
+    hypertensionMedicationName: null,
 
     isHyperlipidemia: false,
     hyperlipidemiaDuration: null,
     hyperlipidemiaDurationType: 1,
     isHyperlipidemiaTreatment: false,
     hyperlipidemiaMedicineId: null,
-    hyperlipidemiaMedicationName: "",
+    hyperlipidemiaMedicationName: null,
 
     isPregnancyHistory: false,
     pregnancyMonth: null,
     isCardiacProblem: false,
-    cardiacProblem: "",
+    cardiacProblem: null,
 
     isOtherMedicalHistory: false,
-    otherMedicalHistory: "",
+    otherMedicalHistory: null,
     otherMedicalDuration: null,
     otherMedicalDurationType: 1,
-    otherMedicationName: "",
+    otherMedicationName: null,
   });
+
+  const validateForm = () => {
+    const errors = {};
+    
+    // Required field validation
+    if (!formData.diabetesMellitisType) errors.diabetesMellitisType = "Required";
+    if (!formData.durationofDiabetes) errors.durationofDiabetes = "Required";
+    if (formData.diabetesMellitisType === 3 && !formData.otherDiabetesMellitisType) {
+      errors.otherDiabetesMellitisType = "Required for Other type";
+    }
+    if (formData.selectedTreatments.length === 0){errors.treatments = "Select at least one treatment";}
+
+    // Validate hypertension data if yes
+    if (formData.isHypertension) {
+      if (!formData.hypertensionDuration) errors.hypertensionDuration = "Required";
+      if (formData.isHypertensionTreatment && !formData.hypertensionMedicineId) {
+        errors.hypertensionMedicineId = "Required";
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+    // Effect to check form completion status
+    useEffect(() => {
+      const isFormComplete = validateForm();
+      // Only update if the form status has changed
+      if (formStatus['Medical-History'] !== isFormComplete) {
+        updateFormStatus('Medical-History', isFormComplete);
+      }
+    }, [formData, updateFormStatus]);
 
   useEffect(() => {
     setFormData((prevData) => ({ ...prevData, ...sectionBData }));
@@ -147,44 +186,49 @@ const SectionB = ({
 
   const handleInputChange = (e) => {
     const { name, value, type } = e.target;
-    
+
     if (type === "radio") {
-      const booleanValue = value === "yes";
-      setFormData(prevData => ({
-        ...prevData,
-        [name]: booleanValue,
-        ...(name === "isHypertension" && !booleanValue ? {
-          hypertensionDuration: null,
-          hypertensionDurationType: 1,
-          isHypertensionTreatment: false,
-          hypertensionMedicineId: null,
-          hypertensionMedicationName: ""
-        } : {}),
-        ...(name === "isHyperlipidemia" && !booleanValue ? {
-          hyperlipidemiaDuration: null,
-          hyperlipidemiaDurationType: 1,
-          isHyperlipidemiaTreatment: false,
-          hyperlipidemiaMedicineId: null,
-          hyperlipidemiaMedicationName: ""
-        } : {})
-      }));
+        const booleanValue = value === "yes";
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: booleanValue,
+            ...(name === "isHypertension" && !booleanValue ? {
+                hypertensionDuration: null,
+                hypertensionDurationType: 1,
+                isHypertensionTreatment: false,
+                hypertensionMedicineId: null,
+                hypertensionMedicationName: null
+            } : {}),
+            ...(name === "isHyperlipidemia" && !booleanValue ? {
+                hyperlipidemiaDuration: null,
+                hyperlipidemiaDurationType: 1,
+                isHyperlipidemiaTreatment: false,
+                hyperlipidemiaMedicineId: null,
+                hyperlipidemiaMedicationName: null
+            } : {})
+        }));
+    } else if (type === "number") {
+        // Convert number input to numeric value
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: parseInt(value) || null,  // Use parseFloat(value) if you expect decimal numbers
+        }));
     } else {
-      setFormData(prevData => ({
-        ...prevData,
-        [name]: value,
-        ...(name === "diabetesMellitisType" && parseInt(value) !== 3 ? {
-          otherDiabetesMellitisType: ""
-        } : {})
-      }));
+        setFormData(prevData => ({
+            ...prevData,
+            [name]: value,
+            ...(name === "diabetesMellitisType" && parseInt(value) !== 3 ? { otherDiabetesMellitisType: null } : {})
+        }));
     }
-  };
+};
+
 
   const prepareMedicineListDTO = () => {
     const medicineList = [];
     
     if (formData.isHypertension && formData.isHypertensionTreatment && formData.hypertensionMedicineId) {
       medicineList.push({
-        medicalHistoryInfoId: 0,
+        medicalHistoryInfoId: null,
         healthIssueType: 1,
         medicine: parseInt(formData.hypertensionMedicineId)
       });
@@ -192,7 +236,7 @@ const SectionB = ({
 
     if (formData.isHyperlipidemia && formData.isHyperlipidemiaTreatment && formData.hyperlipidemiaMedicineId) {
       medicineList.push({
-        medicalHistoryInfoId: 0,
+        medicalHistoryInfoId: null,
         healthIssueType: 2,
         medicine: parseInt(formData.hyperlipidemiaMedicineId)
       });
@@ -201,51 +245,91 @@ const SectionB = ({
     return medicineList;
   };
 
-  const handleSubmit = () => {
-    const payload = {
-      patientInfoId,
-      ...formData,
-      medicalHistoryTreatmentTypeInfoDTOs: formData.selectedTreatments,
-      medicineListInfoDTOs: prepareMedicineListDTO()
-    };
+   const handleSubmit = async () => {
+    try {
+      if (!validateForm()) {
+        toast.error("Please fill in all required fields correctly", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
 
-    dispatch(submitFormData(payload))
-      .unwrap()
-      .then((response) => {
-        const id = response;
-        dispatch(saveSectionBData({ ...formData, DrRegistryId: id, patientInfoId }));
-        localStorage.setItem("DrRegistryId", id);
-        alert("Registry ID created!");
+      const payload = {
+        patientInfoId,
+        ...formData,
+        medicalHistoryTreatmentTypeInfoDTOs: formData.selectedTreatments,
+        medicineListInfoDTOs: prepareMedicineListDTO()
+      };
+
+      const result = await dispatch(addMedicalHistory(payload)).unwrap();
+      
+      if (result) {
+        dispatch(saveSectionBData({ ...formData, DrRegistryId: result, patientInfoId }));
+        localStorage.setItem("DrRegistryId", result);
+        
+        // Update form status on successful submission
+        updateFormStatus('Medical-History', true);
+        
+        toast.success("Medical history added successfully!", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+
         const nextAlphabet = "Smoking-History";
         setSelectedAlphabet(nextAlphabet);
         localStorage.setItem("selectedAlphabet", nextAlphabet);
         navigate(`/section-${nextAlphabet}`);
         handleNextClick();
-      })
-      .catch((error) => {
-        console.error("Error submitting form:", error);
-        alert("Failed to submit the form. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error(error.message || "Failed to add medical history. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
       });
+      // Update form status on failure
+      updateFormStatus('Medical-History', false);
+    }
   };
 
-  const handleNextPage = () => {
-    const id = localStorage.getItem("DrRegistryId");
-    const payload = {
-      patientInfoId,
-      DrRegistryId: id,
-      ...formData,
-    };
+  const handleNextPage = async () => {
+    try {
+      if (!validateForm()) {
+        toast.error("Please fill in all required fields correctly", {
+          position: "top-right",
+          autoClose: 3000,
+        });
+        return;
+      }
 
-    dispatch(updateDrRegistryInfo(payload))
-      .unwrap()
-      .then(() => {
-        alert("Data updated successfully!");
-        handleNextClick();
-      })
-      .catch((error) => {
-        console.error("Error updating form:", error);
-        alert("Failed to update the form. Please try again.");
+      const id = localStorage.getItem("DrRegistryId");
+      const payload = {
+        patientInfoId,
+        DrRegistryId: id,
+        ...formData,
+      };
+
+      await dispatch(updateDrRegistryInfo(payload)).unwrap();
+      
+      // Update form status on successful update
+      updateFormStatus('Medical-History', true);
+      
+      toast.success("Data updated successfully!", {
+        position: "top-right",
+        autoClose: 3000,
       });
+      
+      handleNextClick();
+    } catch (error) {
+      console.error("Error updating form:", error);
+      toast.error("Failed to update the form. Please try again.", {
+        position: "top-right",
+        autoClose: 3000,
+      });
+      // Update form status on failure
+      updateFormStatus('Medical-History', false);
+    }
   };
 
   const isRegistered = patientInfoId && localStorage.getItem("DrRegistryId");
@@ -256,13 +340,20 @@ const SectionB = ({
         Section B: Medical History
       </Typography>
 
+         {/* Add error messages for form-level errors */}
+         {Object.keys(formErrors).length > 0 && (
+        <Box sx={{ mb: 2, color: 'error.main' }}>
+          Please fill-up the highlighted fields
+        </Box>
+      )}
+
       <Grid container spacing={3}>
         {/* Diabetes Mellitus Type */}
         <Grid item xs={12}>
-          <FormControl fullWidth>
+          <FormControl fullWidth  error={!!formErrors.diabetesMellitisType}>
             <InputLabel>Type of Diabetes Mellitus</InputLabel>
             <Select
-              value={formData.diabetesMellitisType || ""}
+              value={formData.diabetesMellitisType || null}
               label="Type of Diabetes Mellitus"
               onChange={handleInputChange}
               name="diabetesMellitisType"
@@ -283,7 +374,7 @@ const SectionB = ({
               label="Specify Other Type"
               variant="outlined"
               name="otherDiabetesMellitisType"
-              value={formData.otherDiabetesMellitisType}
+              value={formData.otherDiabetesMellitisType||null}
               onChange={handleInputChange}
             />
           </Grid>
@@ -296,7 +387,7 @@ const SectionB = ({
             type="datetime-local"
             variant="outlined"
             name="diabetesDetectedDate"
-            value={formData.diabetesDetectedDate}
+            value={formData.diabetesDetectedDate||null}
             onChange={handleInputChange}
             InputLabelProps={{ shrink: true }}
           />
@@ -309,7 +400,7 @@ const SectionB = ({
             type="number"
             variant="outlined"
             name="durationofDiabetes"
-            value={formData.durationofDiabetes || ""}
+            value={parseInt(formData.durationofDiabetes) || null}
             onChange={handleInputChange}
           />
         </Grid>
@@ -333,14 +424,14 @@ const SectionB = ({
         </Grid>
 
         {/* Treatment of Diabetes */}
-        <Grid item xs={12}>
-          <FormControl component="fieldset">
+        <Grid item xs={12} >
+          <FormControl component="fieldset"  error={!!formErrors.selectedTreatments} >
             <FormLabel>Type of Treatment</FormLabel>
             <Grid container spacing={2}>
               {TREATMENT_OPTIONS.map((option) => (
                 <Grid item xs={12} key={option.id}>
                   <Box display="flex" alignItems="center" gap={2}>
-                    <FormControlLabel
+                    <FormControlLabel 
                       control={
                         <Checkbox 
                           checked={formData.selectedTreatments.some(
@@ -359,7 +450,7 @@ const SectionB = ({
                         value={
                           formData.selectedTreatments.find(
                             t => t.treatmentType === option.id
-                          )?.treatmentStartDate || ""
+                          )?.treatmentStartDate || null
                         }
                         onChange={(e) => handleTreatmentDateChange(option.id, e.target.value)}
                         InputLabelProps={{ shrink: true }}
@@ -395,7 +486,7 @@ const SectionB = ({
               label="Source of Awareness"
               variant="outlined"
               name="sourceofAwareness"
-              value={formData.sourceofAwareness}
+              value={formData.sourceofAwareness||null}
               onChange={handleInputChange}
             />
           </Grid>
@@ -426,7 +517,7 @@ const SectionB = ({
               type="number"
               variant="outlined"
               name="hypertensionDuration"
-              value={formData.hypertensionDuration || ""}
+              value={parseInt(formData.hypertensionDuration) || null}
               onChange={handleInputChange}
             />
           </Grid>
@@ -434,7 +525,7 @@ const SectionB = ({
             <FormControl fullWidth>
               <InputLabel>Duration Type</InputLabel>
               <Select
-                value={formData.hypertensionDurationType}
+                value={formData.hypertensionDurationType||null}
                 label="Duration Type"
                 name="hypertensionDurationType"
                 onChange={handleInputChange}
@@ -468,7 +559,7 @@ const SectionB = ({
               <FormControl fullWidth>
                 <InputLabel>Select Medicine</InputLabel>
                 <Select
-                  value={formData.hypertensionMedicineId || ""}
+                  value={formData.hypertensionMedicineId || null}
                   name="hypertensionMedicineId"
                   onChange={handleInputChange}
                   label="Select Medicine"
@@ -510,7 +601,7 @@ const SectionB = ({
               type="number"
               variant="outlined"
               name="hyperlipidemiaDuration"
-              value={formData.hyperlipidemiaDuration || ""}
+              value={parseInt(formData.hyperlipidemiaDuration) || null}
               onChange={handleInputChange}
             />
           </Grid>

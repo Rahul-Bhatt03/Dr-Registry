@@ -30,14 +30,15 @@ import {
 } from "../features/locationSlice";
 import { fetchOccupations } from "../features/occupationsSlice.js";
 import { addPatientInfo } from "../features/patientInfoSlice.js";
+import  addRegistry from "../features/registerSlice.js";
 import {toast} from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 
-
-
-const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
+const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet , updateFormStatus, 
+  formStatus }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+
 
   const { states, districts, municipalities, loading, error } = useSelector(
     (state) => state.location
@@ -49,6 +50,7 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
     error: occupationError,
   } = useSelector((state) => state.occupations);
 
+  const [formErrors, setFormErrors] = useState({});
   const savedData = useSelector((state) => state.form.sectionA);
   const [formData, setFormData] = useState({
     indexSyncId: null,
@@ -70,6 +72,35 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
     occupationId: null,
   });
 
+  const validateForm = () => {
+    const errors = {};
+    // Required fields validation
+    if (!formData.patientName) errors.patientName = "Patient name is required";
+    if (!formData.age) errors.age = "Age is required";
+    if (!formData.phoneNumber) errors.phoneNumber = "Phone number is required";
+    if (!formData.gender) errors.gender = "Gender is required";
+    if (!formData.ethnicGroupId) errors.ethnicGroupId = "Ethnic group is required";
+    if (!formData.stateId) errors.stateId = "State is required";
+    if (!formData.districtId) errors.districtId = "District is required";
+    if (!formData.municipalityId) errors.municipalityId = "Municipality is required";
+    if (!formData.wardNo) errors.wardNo = "Ward number is required";
+    if (!formData.education) errors.education = "Education is required";
+    if (!formData.occupationId) errors.occupationId = "Occupation is required";
+
+    // Phone number validation
+    if (formData.phoneNumber && !/^\d{10}$/.test(formData.phoneNumber)) {
+      errors.phoneNumber = "Phone number must be 10 digits";
+    }
+
+    // Age validation
+    if (formData.age && (formData.age < 0 || formData.age > 120)) {
+      errors.age = "Age must be between 0 and 120";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const educationOptions = [
     { id: 1, label: "Illiterate" },
     { id: 2, label: "Primary" },
@@ -80,6 +111,15 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
   const { items: ethnicGroups } = useSelector((state) => state.ethnicGroups);
   const [selectedEthnicGroup, setSelectedEthnicGroup] = useState("");
   const [showOtherEthnicGroups, setShowOtherEthnicGroups] = useState(false);
+
+    // Effect to check form completion status
+    useEffect(() => {
+      const isFormComplete = validateForm();
+      // Only update if the form status has changed
+      if (formStatus['Demographic-History'] !== isFormComplete) {
+        updateFormStatus('Demographic-History', isFormComplete);
+      }
+    }, [formData, updateFormStatus]);
 
   useEffect(() => {
     dispatch(fetchOccupations());
@@ -131,66 +171,118 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
     others: 3,
   };
 
+  const calculateAge = (birthDate) => {
+    if (!birthDate) return null;
+    const today = new Date();
+    const dob = new Date(birthDate);
+    let age = today.getFullYear() - dob.getFullYear();
+    const monthDiff = today.getMonth() - dob.getMonth();
+    
+    // Adjust age if birthday hasn't occurred this year
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+      age--;
+    }
+    
+    // Validate age range
+    if (age < 0 || age > 120) return null;
+    return age;
+  };
+
   const handleChange = (field, value) => {
-    // Update local state
-    console.log(field)
-    console.log(value)
-    const updatedValue =
-    value === "" || value === undefined || value === null
-      ? null
-      : field === "dob"
-      ? new Date(value).toISOString()
-      : field === "gender"
-      ? genderIdMap[value]
-      :field==='phoneNumber'
-      ?String(value)
-      : value;
-    setFormData((prev) => ({
+    // Clear error for the field being changed
+    setFormErrors(prev => ({
       ...prev,
-      [field]: updatedValue,
-      [field]: field === "education" ? educationOptions.filter((e)=>e.id==value).label: value,
-      [field]: field === "gender" ? genderIdMap[value] : value,
-      ...(field === "stateId" && { districtId: "", municipalityId: "" }),
-      ...(field === "districtId" && { municipalityId: "" }),
+      [field]: undefined
     }));
-
-    if (field === "education") {
-      dispatch(saveSectionAData({ ...formData, }));
-    } else {
-      dispatch(saveSectionAData({ ...formData, [field]: updatedValue }));
-    }
-
-    if (field === "dob") {
-      dispatch(saveSectionAData({ ...formData, dob: updatedValue }));
-    } else {
-      dispatch(saveSectionAData({ ...formData, [field]: value }));
-    }
-
-    // Update Redux store for location-specific fields
-    if (field === "stateId") {
-      dispatch(
-        saveSectionAData({
+  
+    // Special handling for different field types
+    let updatedValue = value;
+  
+    switch (field) {
+      case "dob":
+        const calculatedAge = calculateAge(value);
+        // Update form data with both dob and calculated age
+        setFormData(prev => ({
+          ...prev,
+          dob: value ? new Date(value).toISOString() : null,
+          age: calculatedAge
+        }));
+        
+        // Update Redux store
+        dispatch(saveSectionAData({
+          ...formData,
+          dob: value ? new Date(value).toISOString() : null,
+          age: calculatedAge
+        }));
+        return; // Exit early as we've handled the update
+  
+      case "phoneNumber":
+        updatedValue = String(value);
+        break;
+  
+      case "gender":
+        updatedValue = genderIdMap[value];
+        break;
+  
+      case "age":
+        // Prevent manual age changes as it's calculated from DOB
+        return;
+  
+      case "education":
+        updatedValue = parseInt(value);
+        break;
+  
+      // Handle fields that should be cleared when parent field changes
+      case "stateId":
+        setFormData(prev => ({
+          ...prev,
+          stateId: value,
+          districtId: null,
+          municipalityId: null
+        }));
+        
+        dispatch(saveSectionAData({
           ...formData,
           stateId: value,
-          districtId: "",
-          municipalityId: "",
-        })
-      );
+          districtId: null,
+          municipalityId: null
+        }));
+        return;
+  
+      case "districtId":
+        setFormData(prev => ({
+          ...prev,
+          districtId: value,
+          municipalityId: null
+        }));
+        
+        dispatch(saveSectionAData({
+          ...formData,
+          districtId: value,
+          municipalityId: null
+        }));
+        return;
+  
+      default:
+        // For all other fields, use the value as is
+        updatedValue = value === "" || value === undefined || value === null
+          ? null
+          : value;
     }
-    if (field === "districtId") {
-      dispatch(
-        saveSectionAData({ ...formData, districtId: value, municipalityId: "" })
-      );
-    }
-    if (field === "municipalityId") {
-      dispatch(saveSectionAData({ ...formData, municipalityId: value }));
-    }
-
-    // Update Redux store for gender
-    if (field === "gender") {
-      dispatch(saveSectionAData({ ...formData, gender: genderIdMap[value] }));
-    }
+  
+    // Update local state
+    setFormData(prev => ({
+      ...prev,
+      [field]: updatedValue
+    }));
+  
+    // Update Redux store
+    dispatch(saveSectionAData({
+      ...formData,
+      [field]: updatedValue
+    }));
   };
+  
 
   const handleEthnicGroupChange = (e) => {
     const value = e.target.value;
@@ -203,71 +295,88 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
     }
   };
 
-  const handleNextPage = () => {
-    const alphabets = [
-      "Demographic-History",
-      "Medical-History",
-      "Smoking-History",
-      "Systemic-Complications",
-      "Investigation",
-      "Ocular-History",
-      "External-Examination",
-      "Slit-Lamp-Examination",
-      "Fundus-Examination",
-      "DIABETIC-RETINOPATHY",
-    ];
-    const currentIndex = alphabets.indexOf(selectedAlphabet);
-    const nextAlphabet =
-      currentIndex < alphabets.length - 1
-        ? alphabets[currentIndex + 1]
-        : alphabets[0];
-  
-    dispatch(addPatientInfo(formData))
-      .unwrap()
-      .then((response) => {
-        // Log the response for verification
-        console.log("API Response:", response);
-        const patientInfoId = response; 
-        if (patientInfoId) {
-          dispatch(saveSectionAData({ ...formData, patientInfoId }));
-          localStorage.setItem("currentpatientInfoId", patientInfoId);
-          console.log("Saved Patient ID:", patientInfoId);
-  
-          // Check for DrRegistryId in localStorage and remove it if present
-          if (localStorage.getItem("DrRegistryId")) {
-            localStorage.removeItem("DrRegistryId");
-            console.log("DrRegistryId removed from localStorage");
-          }
-  
-          // Display success toast notification
-          toast.success("Patient registered successfully!", {
-            position: "top-right",
-            autoClose: 3000,
-          });
-        }
-  
-        // Navigate to the next section
-        setSelectedAlphabet(nextAlphabet);
-        localStorage.setItem("selectedAlphabet", nextAlphabet);
-        navigate(`/section-${nextAlphabet}`);
-      })
-      .catch((error) => {
-        // Log and notify user of the error
-        console.error("Failed to register patient info:", error);
-  
-        const errorMessage =
-          error.message || "An error occurred while saving the patient info";
-  
-        // Display error toast notification
-        toast.error(errorMessage, {
+  const handleNextPage = async () => {
+    try {
+      if (!validateForm()) {
+        toast.error("Please fill in all required fields correctly", {
           position: "top-right",
           autoClose: 3000,
         });
+        return;
+      }
+  
+      // First API call - Patient Info
+      const patientInfoResponse = await dispatch(addPatientInfo(formData)).unwrap();
+      
+      // Check if we have a valid response
+      if (!patientInfoResponse) {
+        throw new Error("Failed to add patient info - no response received");
+      }
+  
+      const patientInfoId = patientInfoResponse;
+      console.log('Patient Info Response:', patientInfoResponse);
+      
+      // Store patient ID in localStorage
+      localStorage.setItem("currentpatientInfoId", patientInfoId.toString());
+  
+      // Prepare data for registry API
+      const registryData = {
+        patientInfoId: parseInt(patientInfoId),
+        dataCollectionDate: new Date().toISOString()
+      };
+  
+      // Second API call - Registry
+      const registryResponse = await dispatch(addRegistry(registryData)).unwrap();
+      console.log('Registry Response:', registryResponse);
+      // Check if we have a valid response
+      if (!registryResponse) {
+        throw new Error("Failed to add registry - no response received");
+      }
+  
+      const registryId = registryResponse;
+  
+      // Store registry ID in localStorage
+      localStorage.setItem("registryInfoId", registryId.toString());
+  
+      // Success notification
+      toast.success("Registration completed successfully!", {
+        position: "top-right",
+        autoClose: 3000,
       });
+  
+      // Clean up old registry ID if exists
+      if (localStorage.getItem("DrRegistryId")) {
+        localStorage.removeItem("DrRegistryId");
+      }
+  
+      // Navigate to next page
+      const nextPage = "Medical-History";
+      setSelectedAlphabet(nextPage);
+      localStorage.setItem("selectedAlphabet", nextPage);
+  
+      navigate(`/section-${nextPage}`, {
+        state: {
+          patientInfoId: parseInt(patientInfoId),
+          registryInfoId: parseInt(registryId)
+        }
+      });
+  
+    } catch (error) {
+      console.error("Registration process failed:", error);
+      
+      // More specific error message
+      const errorMessage = error.message || 
+                          error.response?.data?.message || 
+                          "Registration failed. Please try again.";
+      
+      toast.error(errorMessage, {
+        position: "top-right",
+        autoClose: 3000,
+      });
+    }
   };
   
-
-
+  
   const commonTextFieldProps = {
     fullWidth: true,
     variant: "outlined",
@@ -322,14 +431,14 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
             <Divider sx={{ mb: 2 }} />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
+          {/* <Grid item xs={12} sm={6} md={4}>
             <TextField
               {...commonTextFieldProps}
               label="Registry Site"
               value={formData.registrySite||null}
               onChange={(e) => handleChange("registrySite", e.target.value)}
             />
-          </Grid> 
+          </Grid>  */}
 
           <Grid item xs={12} sm={6} md={4}>
             <TextField
@@ -339,6 +448,9 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
               InputLabelProps={{ shrink: true }}
               value={formData.dob ? formData.dob.split("T")[0] : null}
               onChange={(e) => handleChange("dob", e.target.value)}
+              error={!!formErrors.dob}
+              helperText={formErrors.dob}
+              required
             />
           </Grid>
 
@@ -350,8 +462,6 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
               onChange={(e) => handleChange("registryIdNo", e.target.value)}
             />
           </Grid>
-
-          
 
           {/* Personal Information */}
           <Grid item xs={12}>
@@ -371,18 +481,24 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
               label="Patient Name"
               value={formData.patientName}
               onChange={(e) => handleChange("patientName", e.target.value)}
+              error={!!formErrors.patientName}
+              helperText={formErrors.patientName}
+              required
             />
           </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
-            <TextField
-              {...commonTextFieldProps}
-              label="Age"
-              type="number"
-              value={parseInt(formData.age)}
-              onChange={(e) => handleChange("age", parseInt(e.target.value))}
-            />
-          </Grid>
+    <TextField
+      {...commonTextFieldProps}
+      label="Age"
+      type="number"
+      value={formData.age || null}
+      InputProps={{
+        readOnly: true,
+      }}
+      helperText="Auto-calculated from date of birth"
+    />
+  </Grid>
 
           <Grid item xs={12} sm={6} md={4}>
             <TextField
@@ -391,6 +507,9 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
               type="number"
               value={formData.phoneNumber}
               onChange={(e) => handleChange("phoneNumber", e.target.value)}
+              error={!!formErrors.phoneNumber}
+              helperText={formErrors.phoneNumber}
+              required
             />
           </Grid>
 
@@ -481,6 +600,9 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
               label="Father's Name"
               value={formData.fatherName}
               onChange={(e) => handleChange("fatherName", e.target.value)}
+              error={!!formErrors.fatherName}
+              helperText={formErrors.fatherName}
+              required
             />
           </Grid>
 
@@ -505,21 +627,17 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
             <Divider sx={{ mb: 2 }} />
           </Grid>
 
-          {/* {loading && <Grid item xs={12}><CircularProgress /></Grid>}
-          {error && <Grid item xs={12}><Alert severity="error">{error}</Alert></Grid>} */}
-
           <Grid item xs={12} sm={6} md={4}>
             <FormControl {...commonSelectProps}>
               <InputLabel id="state-label">State</InputLabel>
               <Select
-              required
                 labelId="state-label"
                 value={formData.stateId || null}
                 onChange={(e) => handleChange("stateId", e.target.value)}
+                error={!!formErrors.stateId}
+                helperText={formErrors.stateId}
+                required
               >
-                {/* <MenuItem value="">
-      <em>None</em>
-    </MenuItem> */}
                 {states.map((state) => (
                   <MenuItem key={state.id} value={state.id}>
                     {state.name}
@@ -533,11 +651,13 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
             <FormControl {...commonSelectProps}>
               <InputLabel>District</InputLabel>
               <Select
-              required
                 value={formData.districtId}
                 onChange={(e) => handleChange("districtId", e.target.value)}
                 label="District"
                 disabled={!formData.stateId}
+                error={!!formErrors.districtId}
+                helperText={formErrors.districtId}
+                required
               >
                 {districts.map((district) => (
                   <MenuItem key={district.id} value={district.id}>
@@ -557,6 +677,9 @@ const RegistryForm = ({ selectedAlphabet, setSelectedAlphabet }) => {
                 onChange={(e) => handleChange("municipalityId", e.target.value)}
                 label="Municipality"
                 disabled={!formData.districtId}
+                error={!!formErrors.municipalityId}
+                helperText={formErrors.municipalityId}
+             
               >
                 {municipalities.map((municipality) => (
                   <MenuItem key={municipality.id} value={municipality.id}>
