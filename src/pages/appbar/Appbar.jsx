@@ -43,7 +43,7 @@ function Appbar({ setSelectedAlphabet, handleAlphabetClick }) {
   };
 
   const handleLogoClick = () => {
-    navigate('/home');
+    navigate('/');
     window.scrollTo(0, 0);
   };
 
@@ -56,7 +56,7 @@ function Appbar({ setSelectedAlphabet, handleAlphabetClick }) {
   };
 
   const menuItems = [
-    { text: 'HOME', icon: <HomeIcon />, path: '/home' },
+    { text: 'HOME', icon: <HomeIcon />, path: '/' },
     { text: 'Register Patient', icon: <InfoIcon />, path: '/section-Demographic-History', alphabet: 'Demographic-History' },
     { text: 'HISTORY', icon: <HistoryIcon />, path: '/individualHistory' },  // Correct path for History
   ];

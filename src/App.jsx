@@ -29,7 +29,7 @@ const App = () => {
     <Router>
       <Routes>
         <Route
-          path="/home"
+          path="/"
           element={
             // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Home />
@@ -143,7 +143,7 @@ const App = () => {
         {/* <Route path="/view-details" element={<ViewDetails />} /> */}
 
         {/* path for logging in */}
-        <Route path="/" element={<SignIn />} />
+        <Route path="/login" element={<SignIn />} />
         <Route path="/signUp" element={<SignUp />} />
 
         <Route
