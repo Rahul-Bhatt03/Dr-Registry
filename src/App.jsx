@@ -31,9 +31,9 @@ const App = () => {
         <Route
           path="/home"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Home />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
 
@@ -41,103 +41,103 @@ const App = () => {
         <Route
           path="/section-Demographic-History"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <RegistryForm />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
 
         <Route
           path="/section-Medical-History"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionB />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
 
         <Route
           path="/section-Smoking-History"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionC />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-Systemic-Complications"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionD />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-Investigation"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionE />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-Ocular-History"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionF />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-External-Examination"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionG />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-Slit-Lamp-Examination"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionH />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-Fundus-Examination"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionI />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/section-DIABETIC-RETINOPATHY"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
               <Layout>
                 <SectionJ />
               </Layout>
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         {/* <Route path="/view-details" element={<ViewDetails />} /> */}
@@ -149,44 +149,44 @@ const App = () => {
         <Route
           path="/ethnicGroup"
           element={
-            <ProtectedRoute allowedRoles={[ "ADMIN"]}>
+            // <ProtectedRoute allowedRoles={[ "ADMIN"]}>
               <EthnicGroupsCrudPage />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/adminsGroup"
           element={
-            <ProtectedRoute allowedRoles={[ "ADMIN"]}>
+            // <ProtectedRoute allowedRoles={[ "ADMIN"]}>
               <AdminManagementPage />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/history"
           element={
-            <ProtectedRoute allowedRoles={["GROUPADMIN",'ADMIN']}>
-              {" "}
+            // <ProtectedRoute allowedRoles={["GROUPADMIN",'ADMIN']}>
+              // {" "}
               <History />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
    <Route
           path="/individualHistory"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
-              {" "}
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+              // {" "}
               <IndividualHistory />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
         <Route
           path="/patient/:id"
           element={
-            <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
-              {" "}
+            // <ProtectedRoute allowedRoles={["USER", "ADMIN","GROUPADMIN"]}>
+              // {" "}
               <PatientDetails />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
 
@@ -202,9 +202,9 @@ const App = () => {
         <Route
           path="/superadmin"
           element={
-            <ProtectedRoute allowedRoles={["SUPERADMIN"]}>
+            // <ProtectedRoute allowedRoles={["SUPERADMIN"]}>
               <Superadmin />
-            </ProtectedRoute>
+            // </ProtectedRoute>
           }
         />
       </Routes>
